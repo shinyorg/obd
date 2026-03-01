@@ -1,126 +1,55 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Windows.Input;
+using Shiny;
 using Shiny.Obd;
 using Shiny.Obd.Ble;
 using Shiny.Obd.Commands;
 
 namespace Sample.Maui;
 
-[QueryProperty(nameof(Device), "Device")]
-public class DashboardViewModel : INotifyPropertyChanged
+[ShellMap<DashboardPage>("dashboard")]
+public partial class DashboardViewModel(
+    BleObdConfiguration config
+) : ObservableObject, IQueryAttributable, IPageLifecycleAware, IDisposable
 {
-    readonly BleObdConfiguration config;
     IObdConnection? connection;
     CancellationTokenSource? pollCts;
-
-    public DashboardViewModel(BleObdConfiguration config)
-    {
-        this.config = config;
-
-        this.ToggleConnectionCommand = new Command(async () =>
-        {
-            if (this.IsConnected)
-                await this.DisconnectFromDevice();
-            else
-                await this.ConnectToDevice();
-        });
-    }
-
     ObdDiscoveredDevice? device;
-    public ObdDiscoveredDevice? Device
+
+    [ObservableProperty] string deviceName = "Unknown";
+    [ObservableProperty] string status = "Waiting...";
+    [ObservableProperty] bool isConnected;
+    [ObservableProperty] string connectionButtonText = "Connect";
+    [ObservableProperty] string adapterInfo = "--";
+    [ObservableProperty] int speed;
+    [ObservableProperty] int rpm;
+    [ObservableProperty] int coolantTemp;
+    [ObservableProperty] double throttle;
+    [ObservableProperty] double fuelLevel;
+    [ObservableProperty] double engineLoad;
+
+    partial void OnIsConnectedChanged(bool value)
+        => this.ConnectionButtonText = value ? "Disconnect" : "Connect";
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        get => this.device;
-        set
+        if (query.TryGetValue("Device", out var value) && value is ObdDiscoveredDevice d)
         {
-            this.SetProperty(ref this.device, value);
-            this.DeviceName = value?.Name ?? "Unknown";
-            _ = this.ConnectToDevice();
+            this.device = d;
+            this.DeviceName = d.Name;
         }
     }
 
-    public ICommand ToggleConnectionCommand { get; }
-
-    string deviceName = "Unknown";
-    public string DeviceName
+    [RelayCommand]
+    async Task ToggleConnection()
     {
-        get => this.deviceName;
-        set => this.SetProperty(ref this.deviceName, value);
+        if (this.IsConnected)
+            await this.DisconnectFromDevice();
+        else
+            await this.ConnectToDevice();
     }
 
-    string status = "Connecting...";
-    public string Status
-    {
-        get => this.status;
-        set => this.SetProperty(ref this.status, value);
-    }
-
-    bool isConnected;
-    public bool IsConnected
-    {
-        get => this.isConnected;
-        set
-        {
-            this.SetProperty(ref this.isConnected, value);
-            this.ConnectionButtonText = value ? "Disconnect" : "Connect";
-        }
-    }
-
-    string connectionButtonText = "Connect";
-    public string ConnectionButtonText
-    {
-        get => this.connectionButtonText;
-        set => this.SetProperty(ref this.connectionButtonText, value);
-    }
-
-    string adapterInfo = "--";
-    public string AdapterInfo
-    {
-        get => this.adapterInfo;
-        set => this.SetProperty(ref this.adapterInfo, value);
-    }
-
-    int speed;
-    public int Speed
-    {
-        get => this.speed;
-        set => this.SetProperty(ref this.speed, value);
-    }
-
-    int rpm;
-    public int Rpm
-    {
-        get => this.rpm;
-        set => this.SetProperty(ref this.rpm, value);
-    }
-
-    int coolantTemp;
-    public int CoolantTemp
-    {
-        get => this.coolantTemp;
-        set => this.SetProperty(ref this.coolantTemp, value);
-    }
-
-    double throttle;
-    public double Throttle
-    {
-        get => this.throttle;
-        set => this.SetProperty(ref this.throttle, value);
-    }
-
-    double fuelLevel;
-    public double FuelLevel
-    {
-        get => this.fuelLevel;
-        set => this.SetProperty(ref this.fuelLevel, value);
-    }
-
-    double engineLoad;
-    public double EngineLoad
-    {
-        get => this.engineLoad;
-        set => this.SetProperty(ref this.engineLoad, value);
-    }
+    public void OnAppearing() => _ = this.ConnectToDevice();
+    public void OnDisappearing() => _ = this.DisconnectFromDevice();
+    public void OnNavigatingFrom(IDictionary<string, object> parameters) { }
 
     async Task ConnectToDevice()
     {
@@ -129,7 +58,7 @@ public class DashboardViewModel : INotifyPropertyChanged
         try
         {
             this.Status = "Connecting...";
-            var transport = new BleObdTransport(this.device, this.config);
+            var transport = new BleObdTransport(this.device, config);
             this.connection = new ObdConnection(transport);
             await this.connection.Connect();
 
@@ -192,11 +121,9 @@ public class DashboardViewModel : INotifyPropertyChanged
         }
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-    void SetProperty<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    public void Dispose()
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return;
-        field = value;
-        this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        this.pollCts?.Cancel();
+        this.pollCts?.Dispose();
     }
 }

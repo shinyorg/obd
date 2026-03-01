@@ -2,9 +2,8 @@ namespace Sample.Maui;
 
 public partial class ScanPage : ContentPage
 {
-    public ScanPage(ScanViewModel viewModel)
+    public ScanPage()
     {
         this.InitializeComponent();
-        this.BindingContext = viewModel;
     }
 }

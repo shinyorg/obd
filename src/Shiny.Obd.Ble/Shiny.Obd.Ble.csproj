@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>Shiny.Obd.Ble</RootNamespace>
-    <Description>BLE transport for Shiny.Obd using Shiny.BluetoothLE</Description>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-android</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios</TargetFrameworks>
+        <RootNamespace>Shiny.Obd.Ble</RootNamespace>
+        <Description>BLE transport for Shiny.Obd using Shiny.BluetoothLE</Description>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Shiny.Obd\Shiny.Obd.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Obd\Shiny.Obd.csproj"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
-    <PackageReference Include="Shiny.BluetoothLE" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
+        <PackageReference Include="Shiny.BluetoothLE"/>
+    </ItemGroup>
 </Project>

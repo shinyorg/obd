@@ -30,6 +30,7 @@ triggers:
   - device scanner
   - adapter profile
   - Shiny.Obd
+  - AddShinyObdBluetoothLE
 ---
 
 # Shiny.Obd Skill
@@ -54,7 +55,7 @@ Invoke this skill when the user wants to:
 - **Repository**: https://github.com/shinyorg/obd
 - **Namespaces**: `Shiny.Obd`, `Shiny.Obd.Ble`, `Shiny.Obd.Commands`
 - **NuGet**: `Shiny.Obd` (core), `Shiny.Obd.Ble` (BLE transport)
-- **Targets**: `netstandard2.1` (core), `net10.0` (BLE)
+- **Targets**: `net10.0` (core), `net10.0` (BLE)
 
 ## Core Types
 
@@ -262,9 +263,13 @@ await connection.Connect();
 ```csharp
 // In MauiProgram.cs
 builder.Services.AddBluetoothLE();  // Shiny BLE v4 — namespace: Shiny
-builder.Services.AddSingleton(new BleObdConfiguration { DeviceNameFilter = "OBD" });
-builder.Services.AddSingleton<IObdDeviceScanner, BleObdDeviceScanner>();
+builder.Services.AddShinyObdBluetoothLE(new BleObdConfiguration
+{
+    DeviceNameFilter = "OBD"
+});
 ```
+
+`AddShinyObdBluetoothLE` registers `BleObdConfiguration` and `IObdDeviceScanner` (`BleObdDeviceScanner`). Call `AddBluetoothLE()` separately for platform BLE support.
 
 ### Explicit adapter profile
 
@@ -314,5 +319,6 @@ public class WifiObdTransport : IObdTransport
 - BLE transport uses `SemaphoreSlim` to serialize commands (one at a time).
 - ELM327 response parser handles both single-line (`"41 0D 50"`) and multi-frame CAN (`"0: 49 02 01 57 42\r1: 41 30..."`) formats.
 - `BleObdDeviceScanner` deduplicates by peripheral UUID — each device is reported once.
-- For MAUI, register BLE with `builder.Services.AddBluetoothLE()` (namespace `Shiny`, no `UseShiny` needed in v4).
+- For MAUI, register BLE with `builder.Services.AddBluetoothLE()` (namespace `Shiny`, no `UseShiny` needed in v4), then call `builder.Services.AddShinyObdBluetoothLE()` to register OBD BLE services.
+- `AddShinyObdBluetoothLE` registers `BleObdConfiguration` and `IObdDeviceScanner` (`BleObdDeviceScanner`).
 - A full MAUI sample app exists in `samples/Sample.Maui/` with scan → select → dashboard flow.

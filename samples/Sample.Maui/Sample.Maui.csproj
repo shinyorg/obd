@@ -6,6 +6,8 @@
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
     <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
 
     <ApplicationTitle>OBD Sample</ApplicationTitle>
     <ApplicationId>net.shinylib.obd.sample</ApplicationId>
@@ -22,7 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Shiny.BluetoothLE" />
+    <PackageReference Include="Shiny.Maui.Shell" />
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="Microsoft.Maui.Controls.Compatibility" />
   </ItemGroup>

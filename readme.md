@@ -16,7 +16,7 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 
 | Package | Target | Description |
 |---------|--------|-------------|
-| `Shiny.Obd` | `netstandard2.1` | Core library — commands, connection, transport abstraction |
+| `Shiny.Obd` | `net10.0` | Core library — commands, connection, transport abstraction |
 | `Shiny.Obd.Ble` | `net10.0` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
 
 ## Quick Start
@@ -245,6 +245,23 @@ Each discovered device is an `ObdDiscoveredDevice` with `Name`, `Id`, and `Nativ
 var transport = new BleObdTransport(device, new BleObdConfiguration());
 var connection = new ObdConnection(transport);
 await connection.Connect();
+```
+
+### DI Registration
+
+Register BLE OBD services in one call:
+
+```csharp
+using Shiny;
+
+builder.Services.AddBluetoothLE(); // Shiny BLE platform registration
+builder.Services.AddShinyObdBluetoothLE(new BleObdConfiguration
+{
+    DeviceNameFilter = "OBD"
+});
+```
+
+`AddShinyObdBluetoothLE` registers `BleObdConfiguration` and `IObdDeviceScanner` (`BleObdDeviceScanner`). You must also call `AddBluetoothLE()` for platform BLE support.
 ```
 
 ## BLE Transport
