@@ -218,6 +218,35 @@ public class MyAdapterProfile : IObdAdapterProfile
 }
 ```
 
+## Device Discovery
+
+Before connecting, scan for available OBD adapters with `IObdDeviceScanner`:
+
+```csharp
+using Shiny.Obd;
+using Shiny.Obd.Ble;
+
+var scanner = new BleObdDeviceScanner(bleManager, new BleObdConfiguration
+{
+    DeviceNameFilter = "OBD"
+});
+
+var cts = new CancellationTokenSource();
+await scanner.Scan(device =>
+{
+    Console.WriteLine($"Found: {device.Name} ({device.Id})");
+    // device.NativeDevice is IPeripheral for BLE
+}, cts.Token);
+```
+
+Each discovered device is an `ObdDiscoveredDevice` with `Name`, `Id`, and `NativeDevice`. Pass it directly to `BleObdTransport`:
+
+```csharp
+var transport = new BleObdTransport(device, new BleObdConfiguration());
+var connection = new ObdConnection(transport);
+await connection.Connect();
+```
+
 ## BLE Transport
 
 ### Configuration
@@ -236,6 +265,15 @@ var config = new BleObdConfiguration
     // Timeout for a single command response
     CommandTimeout = TimeSpan.FromSeconds(10)
 };
+```
+
+### Using a Discovered Device
+
+Use `BleObdDeviceScanner` to find adapters, then pass the selected device directly:
+
+```csharp
+ObdDiscoveredDevice device = /* from scanner */;
+var transport = new BleObdTransport(device, new BleObdConfiguration());
 ```
 
 ### Using a Pre-Scanned Peripheral

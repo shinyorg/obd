@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Sample.Maui"
+    x:Class="Sample.Maui.DashboardPage"
+    x:DataType="local:DashboardViewModel"
+    Title="{Binding DeviceName}">
+
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="12">
+
+            <!-- Status Bar -->
+            <Frame Padding="12" BackgroundColor="{AppThemeBinding Light=#F0F0F0, Dark=#2A2A2A}" HasShadow="False">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding AdapterInfo}" FontSize="12" TextColor="Gray" />
+                    <Label Text="{Binding Status}" FontSize="14" />
+                    <Button Text="{Binding ConnectionButtonText}" Command="{Binding ToggleConnectionCommand}" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Speed -->
+            <Frame Padding="16" HasShadow="False" BorderColor="LightGray">
+                <VerticalStackLayout HorizontalOptions="Center">
+                    <Label Text="SPEED" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+                        <Label Text="{Binding Speed}" FontSize="48" FontAttributes="Bold" />
+                        <Label Text="km/h" FontSize="16" TextColor="Gray" VerticalOptions="End" Margin="0,0,0,10" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- RPM -->
+            <Frame Padding="16" HasShadow="False" BorderColor="LightGray">
+                <VerticalStackLayout HorizontalOptions="Center">
+                    <Label Text="ENGINE RPM" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+                        <Label Text="{Binding Rpm}" FontSize="48" FontAttributes="Bold" />
+                        <Label Text="RPM" FontSize="16" TextColor="Gray" VerticalOptions="End" Margin="0,0,0,10" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Two Column Row: Coolant + Throttle -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Frame Padding="12" HasShadow="False" BorderColor="LightGray">
+                    <VerticalStackLayout HorizontalOptions="Center">
+                        <Label Text="COOLANT" FontSize="11" TextColor="Gray" HorizontalTextAlignment="Center" />
+                        <HorizontalStackLayout HorizontalOptions="Center" Spacing="2">
+                            <Label Text="{Binding CoolantTemp}" FontSize="32" FontAttributes="Bold" />
+                            <Label Text="°C" FontSize="14" TextColor="Gray" VerticalOptions="End" Margin="0,0,0,6" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Frame Grid.Column="1" Padding="12" HasShadow="False" BorderColor="LightGray">
+                    <VerticalStackLayout HorizontalOptions="Center">
+                        <Label Text="THROTTLE" FontSize="11" TextColor="Gray" HorizontalTextAlignment="Center" />
+                        <HorizontalStackLayout HorizontalOptions="Center" Spacing="2">
+                            <Label Text="{Binding Throttle, StringFormat='{0:F1}'}" FontSize="32" FontAttributes="Bold" />
+                            <Label Text="%" FontSize="14" TextColor="Gray" VerticalOptions="End" Margin="0,0,0,6" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+            </Grid>
+
+            <!-- Two Column Row: Fuel + Engine Load -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Frame Padding="12" HasShadow="False" BorderColor="LightGray">
+                    <VerticalStackLayout HorizontalOptions="Center">
+                        <Label Text="FUEL LEVEL" FontSize="11" TextColor="Gray" HorizontalTextAlignment="Center" />
+                        <HorizontalStackLayout HorizontalOptions="Center" Spacing="2">
+                            <Label Text="{Binding FuelLevel, StringFormat='{0:F1}'}" FontSize="32" FontAttributes="Bold" />
+                            <Label Text="%" FontSize="14" TextColor="Gray" VerticalOptions="End" Margin="0,0,0,6" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Frame Grid.Column="1" Padding="12" HasShadow="False" BorderColor="LightGray">
+                    <VerticalStackLayout HorizontalOptions="Center">
+                        <Label Text="ENGINE LOAD" FontSize="11" TextColor="Gray" HorizontalTextAlignment="Center" />
+                        <HorizontalStackLayout HorizontalOptions="Center" Spacing="2">
+                            <Label Text="{Binding EngineLoad, StringFormat='{0:F1}'}" FontSize="32" FontAttributes="Bold" />
+                            <Label Text="%" FontSize="14" TextColor="Gray" VerticalOptions="End" Margin="0,0,0,6" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

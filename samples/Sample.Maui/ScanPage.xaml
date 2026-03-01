@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Sample.Maui"
+    xmlns:obd="clr-namespace:Shiny.Obd;assembly=Shiny.Obd"
+    x:Class="Sample.Maui.ScanPage"
+    x:DataType="local:ScanViewModel"
+    Title="Find OBD Adapter">
+
+    <Grid RowDefinitions="Auto,*" Padding="16">
+
+        <Button
+            Text="{Binding ScanButtonText}"
+            Command="{Binding ToggleScanCommand}"
+            Margin="0,0,0,12" />
+
+        <CollectionView
+            Grid.Row="1"
+            ItemsSource="{Binding Devices}"
+            SelectionMode="None">
+            <CollectionView.EmptyView>
+                <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                    <Label
+                        Text="No devices found yet. Tap 'Start Scan' to begin."
+                        HorizontalTextAlignment="Center"
+                        TextColor="Gray" />
+                </StackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="obd:ObdDiscoveredDevice">
+                    <Frame Margin="0,4" Padding="12" HasShadow="False" BorderColor="LightGray">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type local:ScanViewModel}}, Path=SelectDeviceCommand}"
+                                CommandParameter="{Binding .}" />
+                        </Frame.GestureRecognizers>
+                        <VerticalStackLayout>
+                            <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold" />
+                            <Label Text="{Binding Id}" FontSize="12" TextColor="Gray" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </Grid>
+</ContentPage>

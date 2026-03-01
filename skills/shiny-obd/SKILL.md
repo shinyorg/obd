@@ -12,6 +12,9 @@ triggers:
   - IObdCommand
   - IObdConnection
   - IObdTransport
+  - IObdDeviceScanner
+  - ObdDiscoveredDevice
+  - BleObdDeviceScanner
   - ObdCommand
   - ObdConnection
   - StandardCommands
@@ -23,6 +26,8 @@ triggers:
   - obd ble
   - BleObdTransport
   - obd adapter
+  - obd scan
+  - device scanner
   - adapter profile
   - Shiny.Obd
 ---
@@ -37,10 +42,12 @@ Invoke this skill when the user wants to:
 - Read vehicle data (speed, RPM, coolant temp, VIN, etc.) through OBD-II
 - Create custom OBD commands with typed return values
 - Connect to an OBD-II adapter over Bluetooth LE
+- Scan for / discover available OBD adapters
 - Configure ELM327 or OBDLink adapter initialization
 - Implement a custom transport (WiFi, USB) for OBD communication
 - Send raw AT commands to an OBD adapter
 - Handle OBD response parsing and error handling
+- Build a MAUI app with OBD integration
 
 ## Library Overview
 
@@ -103,6 +110,28 @@ public interface IObdTransport : IAsyncDisposable
 }
 ```
 
+### IObdDeviceScanner — Device discovery
+
+```csharp
+public interface IObdDeviceScanner
+{
+    Task Scan(Action<ObdDiscoveredDevice> onDeviceFound, CancellationToken ct = default);
+}
+```
+
+Cancel the token to stop scanning. Each discovered device invokes the callback.
+
+### ObdDiscoveredDevice — Discovered adapter
+
+```csharp
+public class ObdDiscoveredDevice
+{
+    public string Name { get; }        // e.g. "OBDLink MX+"
+    public string Id { get; }          // unique identifier (BLE UUID, IP, etc.)
+    public object NativeDevice { get; } // IPeripheral for BLE, IPEndPoint for WiFi, etc.
+}
+```
+
 ### ObdConnection — ELM327 protocol handler
 
 Two constructors:
@@ -162,9 +191,10 @@ public class BleObdConfiguration
 
 ### BleObdTransport
 
-Two constructors:
+Three constructors:
 - `BleObdTransport(IBleManager bleManager, BleObdConfiguration config)` — scans for adapter
 - `BleObdTransport(IPeripheral peripheral, BleObdConfiguration config)` — uses pre-discovered peripheral
+- `BleObdTransport(ObdDiscoveredDevice device, BleObdConfiguration config)` — uses device from scanner
 
 Uses Shiny.BluetoothLE v4 APIs:
 - `ConnectAsync` for task-based connection
@@ -207,6 +237,33 @@ await connection.Connect();
 var speed = await connection.Execute(StandardCommands.VehicleSpeed);
 var rpm = await connection.Execute(StandardCommands.EngineRpm);
 var vin = await connection.Execute(StandardCommands.Vin);
+```
+
+### Scanning for devices then connecting
+
+```csharp
+var scanner = new BleObdDeviceScanner(bleManager);
+var cts = new CancellationTokenSource();
+ObdDiscoveredDevice? selected = null;
+
+await scanner.Scan(device =>
+{
+    selected = device;
+    cts.Cancel(); // stop after first device
+}, cts.Token);
+
+var transport = new BleObdTransport(selected!, new BleObdConfiguration());
+var connection = new ObdConnection(transport);
+await connection.Connect();
+```
+
+### MAUI DI registration
+
+```csharp
+// In MauiProgram.cs
+builder.Services.AddBluetoothLE();  // Shiny BLE v4 — namespace: Shiny
+builder.Services.AddSingleton(new BleObdConfiguration { DeviceNameFilter = "OBD" });
+builder.Services.AddSingleton<IObdDeviceScanner, BleObdDeviceScanner>();
 ```
 
 ### Explicit adapter profile
@@ -256,3 +313,6 @@ public class WifiObdTransport : IObdTransport
 - `ObdConnection` appends `\r` to all commands sent via `SendRaw` before passing to transport.
 - BLE transport uses `SemaphoreSlim` to serialize commands (one at a time).
 - ELM327 response parser handles both single-line (`"41 0D 50"`) and multi-frame CAN (`"0: 49 02 01 57 42\r1: 41 30..."`) formats.
+- `BleObdDeviceScanner` deduplicates by peripheral UUID — each device is reported once.
+- For MAUI, register BLE with `builder.Services.AddBluetoothLE()` (namespace `Shiny`, no `UseShiny` needed in v4).
+- A full MAUI sample app exists in `samples/Sample.Maui/` with scan → select → dashboard flow.

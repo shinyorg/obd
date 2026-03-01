@@ -41,6 +41,17 @@ public class BleObdTransport : IObdTransport
         this.config = config ?? throw new ArgumentNullException(nameof(config));
     }
 
+    /// <summary>
+    /// Create a transport from a discovered device (obtained via <see cref="BleObdDeviceScanner"/>)
+    /// </summary>
+    public BleObdTransport(ObdDiscoveredDevice device, BleObdConfiguration config)
+    {
+        if (device == null) throw new ArgumentNullException(nameof(device));
+        this.peripheral = device.NativeDevice as IPeripheral
+            ?? throw new ArgumentException("Device is not a BLE peripheral", nameof(device));
+        this.config = config ?? throw new ArgumentNullException(nameof(config));
+    }
+
     public bool IsConnected => this.peripheral?.Status == ConnectionState.Connected;
 
     public async Task Connect(CancellationToken ct = default)

@@ -1,9 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
     <RootNamespace>Shiny.Obd.Ble</RootNamespace>
+    <Description>BLE transport for Shiny.Obd using Shiny.BluetoothLE</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,6 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Shiny.BluetoothLE" Version="4.0.0-beta-0095" />
+    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
+    <PackageReference Include="Shiny.BluetoothLE" />
   </ItemGroup>
 </Project>
