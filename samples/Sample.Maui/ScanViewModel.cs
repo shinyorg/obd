@@ -33,9 +33,8 @@ public partial class ScanViewModel(
     async Task SelectDevice(ObdDiscoveredDevice device)
     {
         this.StopScan();
-        await navigator.NavigateTo(
-            "dashboard",
-            ("Device", device)
+        await navigator.NavigateTo<DashboardViewModel>(
+            vm => vm.Device = device
         );
     }
 

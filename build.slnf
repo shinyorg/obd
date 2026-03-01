@@ -1,0 +1,10 @@
+﻿{
+    "solution": {
+        "path": "Obd.slnx",
+        "projects": [
+            "src\\Shiny.Obd.Ble\\Shiny.Obd.Ble.csproj",
+            "src\\Shiny.Obd\\Shiny.Obd.csproj",
+            "tests\\Shiny.Obd.Tests\\Shiny.Obd.Tests.csproj"
+        ]
+    }
+}

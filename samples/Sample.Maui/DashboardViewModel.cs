@@ -8,11 +8,10 @@ namespace Sample.Maui;
 [ShellMap<DashboardPage>("dashboard")]
 public partial class DashboardViewModel(
     BleObdConfiguration config
-) : ObservableObject, IQueryAttributable, IPageLifecycleAware, IDisposable
+) : ObservableObject, IPageLifecycleAware, IDisposable
 {
     IObdConnection? connection;
     CancellationTokenSource? pollCts;
-    ObdDiscoveredDevice? device;
 
     [ObservableProperty] string deviceName = "Unknown";
     [ObservableProperty] string status = "Waiting...";
@@ -26,17 +25,10 @@ public partial class DashboardViewModel(
     [ObservableProperty] double fuelLevel;
     [ObservableProperty] double engineLoad;
 
+    public ObdDiscoveredDevice? Device { get; set; }
+
     partial void OnIsConnectedChanged(bool value)
         => this.ConnectionButtonText = value ? "Disconnect" : "Connect";
-
-    public void ApplyQueryAttributes(IDictionary<string, object> query)
-    {
-        if (query.TryGetValue("Device", out var value) && value is ObdDiscoveredDevice d)
-        {
-            this.device = d;
-            this.DeviceName = d.Name;
-        }
-    }
 
     [RelayCommand]
     async Task ToggleConnection()
@@ -47,18 +39,22 @@ public partial class DashboardViewModel(
             await this.ConnectToDevice();
     }
 
-    public void OnAppearing() => _ = this.ConnectToDevice();
+    public void OnAppearing()
+    {
+        this.DeviceName = this.Device?.Name ?? "Unknown";
+        _ = this.ConnectToDevice();
+    }
     public void OnDisappearing() => _ = this.DisconnectFromDevice();
     public void OnNavigatingFrom(IDictionary<string, object> parameters) { }
 
     async Task ConnectToDevice()
     {
-        if (this.device == null) return;
+        if (this.Device == null) return;
 
         try
         {
             this.Status = "Connecting...";
-            var transport = new BleObdTransport(this.device, config);
+            var transport = new BleObdTransport(this.Device, config);
             this.connection = new ObdConnection(transport);
             await this.connection.Connect();
 

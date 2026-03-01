@@ -3,6 +3,7 @@
     <File Path=".editorconfig" />
     <File Path=".github\workflows\build.yml" />
     <File Path=".github\workflows\sync-skills.yml" />
+    <File Path="build.slnf" />
     <File Path="Directory.build.props" />
     <File Path="Directory.packages.props" />
     <File Path="global.json" />
