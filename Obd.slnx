@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Shiny.Obd.Ble/Shiny.Obd.Ble.csproj" />
+    <Project Path="src/Shiny.Obd/Shiny.Obd.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj" />
+  </Folder>
+</Solution>
