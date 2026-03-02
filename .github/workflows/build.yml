@@ -37,8 +37,11 @@ jobs:
       with:
           dotnet-version: '10.0.x'
 
+    - name: Add .NET Workloads
+      run: dotnet workload install maui-ios maui-android
+      
     - name: Build
-      run: dotnet build Obd.slnx /restore -m -property:Configuration=Release
+      run: dotnet build build.slnf /restore -m -property:Configuration=Release
 
     - name: Test
       run: dotnet test tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj --configuration Release --no-build
