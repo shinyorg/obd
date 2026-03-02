@@ -1,6 +1,10 @@
 # Shiny.Obd
 
+[![NuGet](https://img.shields.io/nuget/v/Shiny.Obd.svg?style=flat-square)](https://www.nuget.org/packages/Shiny.Obd/)
+
 A .NET library for communicating with vehicles through OBD-II (On-Board Diagnostics) adapters. Supports ELM327 and OBDLink (STN) adapters over pluggable transports, starting with Bluetooth LE.
+
+[Documentation](https://shinylib.net/client/obd)
 
 ## Features
 
