@@ -41,7 +41,7 @@ jobs:
       run: dotnet workload install maui-ios maui-android
       
     - name: Build
-      run: dotnet build build.slnf /restore -m -property:Configuration=Release
+      run: dotnet build build.slnf /restore -m -property:Configuration=Release -property:PublicRelease=true
 
     - name: Test
       run: dotnet test tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj --configuration Release --no-build
