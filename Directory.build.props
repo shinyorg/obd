@@ -13,7 +13,7 @@
         <RepositoryUrl>https://github.com/shinyorg/obd</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
 
-        <MauiVersion>10.0.41</MauiVersion>
+        <MauiVersion>10.0.51</MauiVersion>
         <PackageIcon>icon.png</PackageIcon>
         <PackageReadmeFile>readme.md</PackageReadmeFile>
         <PackageReleaseNotes>https://shinylib.net/client/obd/release-notes</PackageReleaseNotes>
