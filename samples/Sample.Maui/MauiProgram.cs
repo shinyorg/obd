@@ -10,9 +10,9 @@ public static class MauiProgram
         var builder = MauiApp
             .CreateBuilder()
             .UseMauiApp<App>()
+            .UseShiny()
             .UseShinyShell(x => x.AddGeneratedMaps());
 
-        builder.Services.AddBluetoothLE();
         builder.Services.AddShinyObdBluetoothLE(new BleObdConfiguration
         {
             ServiceUuid = "FFF0",

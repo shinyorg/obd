@@ -1,4 +1,3 @@
-#if IOS || ANDROID
 using Microsoft.Extensions.DependencyInjection;
 using Shiny.Obd.Ble;
 
@@ -13,11 +12,14 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         BleObdConfiguration? configuration = null
     )
+
     {
+#if IOS || ANDROID
         services.AddBluetoothLE();
         services.AddSingleton(configuration ?? new BleObdConfiguration());
         services.AddSingleton<Obd.IObdDeviceScanner, BleObdDeviceScanner>();
+#endif
         return services;
     }
 }
-#endif
+

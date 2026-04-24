@@ -1,6 +1,6 @@
 namespace Sample.Maui;
 
-public partial class AppShell : Shell
+public partial class AppShell : Shiny.ShinyShell
 {
     public AppShell()
     {

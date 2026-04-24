@@ -45,8 +45,8 @@ public partial class DashboardViewModel(
         _ = this.ConnectToDevice();
     }
     public void OnDisappearing() => _ = this.DisconnectFromDevice();
-    public void OnNavigatingFrom(IDictionary<string, object> parameters) { }
 
+    
     async Task ConnectToDevice()
     {
         if (this.Device == null) return;

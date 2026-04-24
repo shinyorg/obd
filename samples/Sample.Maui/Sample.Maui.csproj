@@ -11,7 +11,7 @@
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
         <ApplicationTitle>Shiny OBD</ApplicationTitle>
-        <ApplicationId>net.shinylib.obd.sample</ApplicationId>
+        <ApplicationId>net.shinylib.obdsample</ApplicationId>
         <ApplicationVersion>1</ApplicationVersion>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
 
@@ -20,7 +20,7 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <MtouchExtraArgs>-v -v -v -v</MtouchExtraArgs>
+        <MtouchExtraArgs>-v -v -v -v</MtouchExtraArgs>
     </PropertyGroup>
 
     <ItemGroup>
@@ -37,6 +37,7 @@
 
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.Mvvm"/>
+        <PackageReference Include="Shiny.Hosting.Maui"/>
         <PackageReference Include="Shiny.Maui.Shell"/>
         <PackageReference Include="Microsoft.Maui.Controls"/>
     </ItemGroup>

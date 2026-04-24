@@ -30,13 +30,7 @@ public partial class ScanViewModel(
     }
 
     [RelayCommand]
-    async Task SelectDevice(ObdDiscoveredDevice device)
-    {
-        this.StopScan();
-        await navigator.NavigateTo<DashboardViewModel>(
-            vm => vm.Device = device
-        );
-    }
+    Task SelectDevice(ObdDiscoveredDevice device) => navigator.NavigateTo<DashboardViewModel>(vm => vm.Device = device);
 
     void StartScan()
     {
@@ -63,6 +57,4 @@ public partial class ScanViewModel(
     public void OnAppearing() { }
 
     public void OnDisappearing() => this.StopScan();
-
-    public void OnNavigatingFrom(IDictionary<string, object> parameters) { }
 }
