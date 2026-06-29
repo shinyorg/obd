@@ -32,13 +32,12 @@ jobs:
 
       - name: Sync skills directory
         run: |
-          # Copy skills content only (not plugin manifests)
-          # The target repo has its own plugin structure
+          # Copy skills content to the shiny-client plugin in the skills repo
           if [ -d "source/skills/shiny-obd" ]; then
             # Remove existing skill directory to ensure clean sync
-            rm -rf skills-repo/skills/shiny-obd
-            mkdir -p skills-repo/skills
-            cp -r source/skills/shiny-obd skills-repo/skills/
+            rm -rf skills-repo/plugins/shiny-client/skills/shiny-obd
+            mkdir -p skills-repo/plugins/shiny-client/skills
+            cp -r source/skills/shiny-obd skills-repo/plugins/shiny-client/skills/
           fi
 
       - name: Create Pull Request
