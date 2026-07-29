@@ -17,6 +17,8 @@ triggers:
   - BleObdDeviceScanner
   - ObdCommand
   - ObdConnection
+  - ObdException
+  - ObdTimeoutException
   - StandardCommands
   - vehicle speed
   - engine rpm
@@ -203,6 +205,39 @@ Uses Shiny.BluetoothLE v4 APIs:
 - `WriteCharacteristicAsync` for TX writes
 - Collects notification bytes until `>` prompt, returns complete response
 
+An exchange that hits `CommandTimeout` throws `ObdTimeoutException` and is then closed off — a late
+reply arriving afterwards is discarded rather than completing the next command's wait. `Disconnect()`
+fails an in-flight command straight away instead of making the caller wait out the timeout.
+
+### ObdTimeoutException
+
+```csharp
+public class ObdTimeoutException : ObdException
+{
+    public string Command { get; }    // the command that went unanswered
+    public TimeSpan Timeout { get; }  // the deadline that elapsed
+}
+```
+
+Thrown when the adapter does not answer within the transport's `CommandTimeout`. **Not** an
+`OperationCanceledException` — generated polling code must be able to tell a quiet adapter apart from
+its own cancellation token firing:
+
+```csharp
+try
+{
+    reading = await connection.Execute(StandardCommands.VehicleSpeed, ct);
+}
+catch (OperationCanceledException) when (ct.IsCancellationRequested)
+{
+    throw;                      // our own shutdown
+}
+catch (ObdException)
+{
+    reading = null;             // this PID is a write-off, the loop carries on
+}
+```
+
 ## Code Generation Patterns
 
 ### Creating a custom OBD command (standard PID)
@@ -316,7 +351,9 @@ public class WifiObdTransport : IObdTransport
 - `ObdCommand<T>.ParseData` receives bytes AFTER the 2-byte mode+PID header is stripped.
 - `IObdCommand<T>.Parse` receives ALL response bytes including mode+PID header.
 - `ObdConnection` appends `\r` to all commands sent via `SendRaw` before passing to transport.
-- BLE transport uses `SemaphoreSlim` to serialize commands (one at a time).
+- BLE transport uses `SemaphoreSlim` to serialize commands (one at a time). It is deliberately never disposed — a pending `Send` would otherwise get an `ObjectDisposedException` when the transport is torn down.
+- A timeout is an `ObdTimeoutException`, never an `OperationCanceledException`. Never write `catch (OperationCanceledException) { throw; }` around `Execute` without a `when (ct.IsCancellationRequested)` filter — historically that turned one slow adapter reply into a dead polling loop.
+- A BLE adapter reports `IsConnected` true long after it has stopped answering the vehicle. Polling code should count consecutive unanswered polls and rebuild the connection, rather than trusting the connection flag.
 - ELM327 response parser handles both single-line (`"41 0D 50"`) and multi-frame CAN (`"0: 49 02 01 57 42\r1: 41 30..."`) formats.
 - `BleObdDeviceScanner` deduplicates by peripheral UUID — each device is reported once.
 - For MAUI, register BLE with `builder.Services.AddBluetoothLE()` (namespace `Shiny`, no `UseShiny` needed in v4), then call `builder.Services.AddShinyObdBluetoothLE()` to register OBD BLE services.

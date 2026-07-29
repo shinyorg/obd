@@ -79,6 +79,44 @@ public class ObdConnectionTests
         Assert.Equal("ATZ\r", transport.LastCommand);
     }
 
+    [Fact]
+    public async Task Execute_SurfacesTransportTimeoutAsObdTimeout()
+    {
+        var transport = new ThrowingTransport(new ObdTimeoutException("010D", TimeSpan.FromSeconds(10)));
+        var connection = new ObdConnection(transport);
+
+        var ex = await Assert.ThrowsAsync<ObdTimeoutException>(
+            () => connection.Execute(StandardCommands.VehicleSpeed));
+
+        Assert.Equal("010D", ex.Command);
+        Assert.Equal(TimeSpan.FromSeconds(10), ex.Timeout);
+    }
+
+    [Fact]
+    public async Task Execute_TimeoutIsNotACancellation()
+    {
+        // A caller polling in a loop keys off cancellation to know it is shutting down. If an adapter
+        // going quiet arrived as an OperationCanceledException the two would be indistinguishable and
+        // one slow reply would tear the loop down.
+        var transport = new ThrowingTransport(new ObdTimeoutException("010C", TimeSpan.FromSeconds(1)));
+        var connection = new ObdConnection(transport);
+
+        var ex = await Record.ExceptionAsync(() => connection.Execute(StandardCommands.EngineRpm));
+
+        Assert.IsNotType<OperationCanceledException>(ex, exactMatch: false);
+        Assert.IsType<ObdException>(ex, exactMatch: false);
+    }
+
+    [Fact]
+    public async Task Execute_PropagatesCallerCancellation()
+    {
+        var transport = new ThrowingTransport(new OperationCanceledException());
+        var connection = new ObdConnection(transport);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => connection.Execute(StandardCommands.VehicleSpeed));
+    }
+
     /// <summary>
     /// Minimal fake transport that returns a canned response
     /// </summary>
@@ -99,6 +137,22 @@ public class ObdConnectionTests
             return Task.FromResult(response);
         }
 
+        public ValueTask DisposeAsync() => default;
+    }
+
+    /// <summary>
+    /// Fake transport that fails every send with a given exception
+    /// </summary>
+    class ThrowingTransport : IObdTransport
+    {
+        readonly Exception error;
+        public bool IsConnected => true;
+
+        public ThrowingTransport(Exception error) => this.error = error;
+
+        public Task Connect(CancellationToken ct = default) => Task.CompletedTask;
+        public Task Disconnect() => Task.CompletedTask;
+        public Task<string> Send(string command, CancellationToken ct = default) => Task.FromException<string>(this.error);
         public ValueTask DisposeAsync() => default;
     }
 }

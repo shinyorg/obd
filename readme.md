@@ -353,6 +353,27 @@ catch (ObdException ex) when (ex.Message.Contains("Unable to connect"))
 
 The `ObdCommand<T>` base class also validates response headers and throws `ObdException` on mode/PID mismatches.
 
+### Timeouts
+
+When an adapter stops answering, the transport throws `ObdTimeoutException` — an `ObdException`, deliberately **not** an `OperationCanceledException`:
+
+```csharp
+try
+{
+    var speed = await connection.Execute(StandardCommands.VehicleSpeed, ct);
+}
+catch (ObdTimeoutException ex)
+{
+    // ex.Command / ex.Timeout — the adapter went quiet, but we are still running
+}
+catch (OperationCanceledException)
+{
+    // our own token fired — we are shutting down
+}
+```
+
+The distinction matters most to a polling loop. If a transport reported its own deadline as a cancellation, a single slow reply would be indistinguishable from a shutdown request and would tear the loop down. Catch the timeout, skip that reading, and keep going — and if timeouts keep coming, rebuild the connection rather than assuming the session is still good, because a BLE adapter stays linked long after it stops talking to the vehicle.
+
 ## Implementing a Custom Transport
 
 Implement `IObdTransport` to add WiFi, USB, or any other communication channel:
