@@ -37,6 +37,7 @@
 
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.Mvvm"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Condition="'$(Configuration)' == 'Debug'"/>
         <PackageReference Include="Shiny.Hosting.Maui"/>
         <PackageReference Include="Shiny.Maui.Shell"/>
         <PackageReference Include="Microsoft.Maui.Controls"/>

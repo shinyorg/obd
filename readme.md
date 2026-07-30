@@ -243,6 +243,16 @@ await scanner.Scan(device =>
 }, cts.Token);
 ```
 
+`DeviceNameFilter` is a case-insensitive substring match against the peripheral's name, falling back to the local name in the advertisement when the peripheral reports none — which is the normal case on iOS while scanning.
+
+The scan is not filtered by `ServiceUuid`. iOS matches a scan filter against the advertisement only, and most ELM327 clones don't advertise their service, so a filtered scan would find nothing there.
+
+Every advertisement seen is logged at `Debug` level before filtering — name, `Peripheral.Name`, id, RSSI and advertised service UUIDs — so an adapter that never reaches your callback can still be identified:
+
+```csharp
+builder.Logging.AddDebug().SetMinimumLevel(LogLevel.Debug);
+```
+
 Each discovered device is an `ObdDiscoveredDevice` with `Name`, `Id`, and `NativeDevice`. Pass it directly to `BleObdTransport`:
 
 ```csharp

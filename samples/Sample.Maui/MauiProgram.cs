@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Shiny;
 using Shiny.Obd.Ble;
 
@@ -12,6 +13,12 @@ public static class MauiProgram
             .UseMauiApp<App>()
             .UseShiny()
             .UseShinyShell(x => x.AddGeneratedMaps());
+
+#if DEBUG
+        // Debug level is what surfaces the per-advertisement dump from BleObdDeviceScanner - the way to
+        // see what an adapter actually advertises when it isn't turning up in the scan list.
+        builder.Logging.AddDebug().SetMinimumLevel(LogLevel.Debug);
+#endif
 
         builder.Services.AddShinyObdBluetoothLE(new BleObdConfiguration
         {

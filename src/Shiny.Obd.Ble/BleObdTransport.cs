@@ -67,11 +67,12 @@ public class BleObdTransport : IObdTransport
             if (this.bleManager == null)
                 throw new ObdException("No peripheral or BLE manager provided");
 
+            // Match on the candidate's resolved name, not Peripheral.Name - on iOS the latter is null
+            // while scanning, so a name filter here would never match. See BleScanCandidate.From.
             this.peripheral = await this.bleManager
                 .Scan()
-                .Where(x =>
-                    this.config.DeviceNameFilter == null ||
-                    (x.Peripheral.Name?.Contains(this.config.DeviceNameFilter, StringComparison.OrdinalIgnoreCase) ?? false))
+                .Select(BleScanCandidate.From)
+                .Where(x => x.Matches(this.config.DeviceNameFilter))
                 .Select(x => x.Peripheral)
                 .Take(1)
                 .ToTask(ct)

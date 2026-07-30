@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Obd\Shiny.Obd.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Obd.Ble\Shiny.Obd.Ble.csproj"/>
     </ItemGroup>
 
 </Project>
