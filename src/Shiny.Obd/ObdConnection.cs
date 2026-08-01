@@ -125,22 +125,87 @@ public class ObdConnection : IObdConnection
             .Where(l => !l.StartsWith("BUS INIT", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        var hexBytes = new List<byte>();
-        foreach (var line in lines)
-        {
-            // Handle CAN multi-frame "N: XX XX XX" format
-            var hexPart = line.Contains(":")
-                ? line.Substring(line.IndexOf(':') + 1).Trim()
-                : line;
+        // An ELM327 prefixes a multi-frame CAN response with a bare byte-count line and numbers
+        // each frame that follows:
+        //
+        //     014
+        //     0: 49 02 01 57 42 41
+        //     1: 31 32 33 34 35 36 37
+        //     2: 38 39 30 31 32 33 34
+        //
+        // That count is framing, not payload — and "014" parses cleanly as 0x14, so leaving it in
+        // shifts every byte of the response along by one and the mode echo check then rejects a
+        // perfectly good reply. Single-frame responses carry no such line, which is why only the
+        // multi-frame commands (mode 09 VIN, mode 03 with three or more codes) were affected.
+        var numbered = lines.Where(HasFrameIndex).ToList();
+        var payloadLines = numbered.Count > 0 ? numbered : lines;
 
-            var parts = hexPart.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var part in parts)
-            {
-                if (byte.TryParse(part, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b))
-                    hexBytes.Add(b);
-            }
+        var hexBytes = new List<byte>();
+        foreach (var line in payloadLines)
+        {
+            var colon = line.IndexOf(':');
+            var hexPart = colon >= 0 ? line.Substring(colon + 1).Trim() : line;
+
+            foreach (var b in ParseHexBytes(hexPart))
+                hexBytes.Add(b);
         }
 
         return hexBytes.ToArray();
+    }
+
+    /// <summary>
+    /// Whether the line is a numbered frame of a multi-frame response ("0: 49 02 ...").
+    /// </summary>
+    /// <remarks>
+    /// The index is hex and runs 0-F before wrapping, so it is one character in practice — but it is
+    /// matched as "all hex digits" rather than by length so a longer index cannot silently be read as
+    /// payload. Requiring <c>idx &gt; 0</c> keeps a leading-colon line from qualifying with an empty index.
+    /// </remarks>
+    static bool HasFrameIndex(string line)
+    {
+        var idx = line.IndexOf(':');
+        if (idx <= 0)
+            return false;
+
+        for (var i = 0; i < idx; i++)
+        {
+            if (!Uri.IsHexDigit(line[i]))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Reads a line of hex, whether or not the adapter is spacing it.
+    /// </summary>
+    /// <remarks>
+    /// The profiles ask for spaces (ATS1), but clones ignore it and an unspaced run would otherwise
+    /// fail to parse as a single token and be dropped in full — losing the whole response rather than
+    /// reporting a problem.
+    /// </remarks>
+    static IEnumerable<byte> ParseHexBytes(string hex)
+    {
+        var parts = hex.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            // Split on length rather than on whether the whole token parses: "0012" fits in a byte
+            // as 0x12, so a parse-first rule would read two bytes as one and drop the leading zero.
+            // A hex byte is two characters, so anything longer is a run of them; an odd length is
+            // not a byte boundary at all and is left alone rather than guessed at.
+            if (part.Length <= 2)
+            {
+                if (byte.TryParse(part, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var single))
+                    yield return single;
+            }
+            else if (part.Length % 2 == 0)
+            {
+                for (var i = 0; i < part.Length; i += 2)
+                {
+                    if (byte.TryParse(part.Substring(i, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b))
+                        yield return b;
+                }
+            }
+        }
     }
 }

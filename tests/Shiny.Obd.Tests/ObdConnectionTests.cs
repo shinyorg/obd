@@ -17,16 +17,68 @@ public class ObdConnectionTests
     [Fact]
     public async Task Execute_ParsesMultiLineResponse()
     {
-        // Simulated multi-frame CAN response for VIN
-        var vin = "WBA12345678901234";
-        var vinHex = string.Join(" ", System.Text.Encoding.ASCII.GetBytes(vin).Select(b => b.ToString("X2")));
-        var response = $"0: 49 02 01 {vinHex.Substring(0, 14)}\r1: {vinHex.Substring(15)}";
+        // Exactly what an ELM327 prints for 0902, byte-count line and all. The count is framing:
+        // 0x014 = 20 = the 49 02 01 header plus 17 VIN characters.
+        var response =
+            "014\r" +
+            "0: 49 02 01 57 42 41\r" +
+            "1: 31 32 33 34 35 36 37\r" +
+            "2: 38 39 30 31 32 33 34";
 
         var transport = new FakeTransport(response);
         var connection = new ObdConnection(transport);
 
         var result = await connection.Execute(StandardCommands.Vin);
-        Assert.Equal(vin, result);
+        Assert.Equal("WBA12345678901234", result);
+    }
+
+    [Fact]
+    public async Task Execute_IgnoresMultiFrameByteCountLine()
+    {
+        // The regression this guards: "014" parses cleanly as 0x14, so treating it as payload shifts
+        // every byte along by one and the mode echo check rejects an otherwise good reply. Both
+        // spellings of the count line an adapter may print are covered.
+        foreach (var count in new[] { "014", "14" })
+        {
+            var response =
+                $"{count}\r" +
+                "0: 49 02 01 57 42 41\r" +
+                "1: 31 32 33 34 35 36 37\r" +
+                "2: 38 39 30 31 32 33 34";
+
+            var connection = new ObdConnection(new FakeTransport(response));
+
+            var result = await connection.Execute(StandardCommands.Vin);
+            Assert.Equal("WBA12345678901234", result);
+        }
+    }
+
+    [Fact]
+    public async Task Execute_ParsesMultiFrameWithoutSpaces()
+    {
+        // The profiles ask for spaces (ATS1) but clones ignore it. An unspaced run used to fail to
+        // parse as a single token and be dropped whole, losing the response rather than reporting it.
+        var response =
+            "014\r" +
+            "0:490201574241\r" +
+            "1:31323334353637\r" +
+            "2:38393031323334";
+
+        var connection = new ObdConnection(new FakeTransport(response));
+
+        var result = await connection.Execute(StandardCommands.Vin);
+        Assert.Equal("WBA12345678901234", result);
+    }
+
+    [Fact]
+    public async Task Execute_SingleFrameResponseHasNoCountLineToStrip()
+    {
+        // A single-frame reply carries no count and no frame numbers, which is why only the
+        // multi-frame commands were ever affected. Pinned so the fix cannot regress the common path.
+        var connection = new ObdConnection(new FakeTransport("41 0C 1A F8"));
+
+        var rpm = await connection.Execute(StandardCommands.EngineRpm);
+        Assert.Equal(1726, rpm);
     }
 
     [Fact]

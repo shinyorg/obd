@@ -13,6 +13,7 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 - **Pluggable transports** — `IObdTransport` abstracts the communication channel. Ship with BLE; add WiFi or USB later.
 - **Adapter auto-detection** — detects ELM327 vs OBDLink (STN) adapters via ATI and runs the appropriate initialization sequence.
 - **Adapter profiles** — `IObdAdapterProfile` lets you define custom init sequences. Built-in profiles for ELM327 and OBDLink.
+- **Multi-frame CAN responses** — the byte-count line and per-frame `N:` index an ELM327 prints for a large reply (the VIN, or mode 03 with three or more codes) are treated as framing and discarded, with spaced and unspaced hex both accepted.
 - **Task-based async** — fully async/await throughout, no Reactive Extensions required in consuming code.
 - **9 standard commands included** — speed, RPM, coolant temp, throttle, fuel level, engine load, intake air temp, runtime, and VIN.
 
