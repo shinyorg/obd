@@ -21,12 +21,41 @@ public readonly record struct MonitorStatus(
     IReadOnlyList<MonitorReadiness> Monitors
 )
 {
+    readonly IReadOnlyList<MonitorReadiness>? monitors = Monitors;
+
+    /// <summary>
+    /// The emissions monitors this vehicle supports. Never null.
+    /// </summary>
+    /// <remarks>
+    /// Read through a backing field rather than as a plain positional property because this is a
+    /// <b>struct</b>: <c>default(MonitorStatus)</c> bypasses every constructor, so a field
+    /// initializer cannot save it and any caller touching the list would take a
+    /// <see cref="NullReferenceException"/>. A default is always reachable for a value type, so it
+    /// has to mean something — here it means "no monitors reported".
+    /// </remarks>
+    public IReadOnlyList<MonitorReadiness> Monitors
+    {
+        get => this.monitors ?? [];
+        init => this.monitors = value;
+    }
+
     /// <summary>
     /// Whether every monitor this vehicle supports has finished running, which is the question an
-    /// emissions inspection actually asks. A vehicle whose codes were recently cleared reads false
-    /// here for several drive cycles even though nothing is wrong with it.
+    /// emissions inspection actually asks — or <b>null when no monitors were reported at all</b>.
     /// </summary>
-    public bool IsReadyForInspection => this.Monitors.All(x => x.Complete);
+    /// <remarks>
+    /// The null case is load-bearing rather than defensive. An adapter that truncates the reply to
+    /// byte A leaves the list empty, and "every monitor in an empty list has completed" is
+    /// vacuously true — so a plain <c>bool</c> would answer <c>true</c> and report a vehicle as
+    /// inspection-ready on the strength of bytes that never arrived. Null says the question was not
+    /// answered, which is the same distinction the whole of OBD-II draws between absent and zero.
+    /// <para>
+    /// A vehicle whose codes were recently cleared honestly reads false here for several drive
+    /// cycles with nothing wrong with it — pair it with
+    /// <see cref="TimeSinceCodesClearedCommand"/> (PID 0x4E) before reporting a problem.
+    /// </para>
+    /// </remarks>
+    public bool? IsReadyForInspection => this.Monitors.Count == 0 ? null : this.Monitors.All(x => x.Complete);
 
     /// <summary>The supported monitors that have not finished running yet.</summary>
     public IEnumerable<MonitorReadiness> Incomplete => this.Monitors.Where(x => !x.Complete);

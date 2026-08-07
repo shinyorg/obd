@@ -74,6 +74,32 @@ public class MonitorStatusDecoderTests
         Assert.True(status.IsReadyForInspection);
     }
 
+    /// <summary>
+    /// A struct's default is always reachable, so it has to mean something rather than throw. This
+    /// is not hypothetical: a fake or stubbed connection hands back <c>default(MonitorStatus)</c>
+    /// for every command, and dereferencing a null list there took down a caller's whole poll loop.
+    /// </summary>
+    [Fact]
+    public void DefaultInstance_IsSafeToRead()
+    {
+        var status = default(MonitorStatus);
+
+        Assert.Empty(status.Monitors);
+        Assert.Empty(status.Incomplete);
+        Assert.Null(status.IsReadyForInspection);
+    }
+
+    /// <summary>
+    /// "Every monitor in an empty list has completed" is vacuously true, so a plain bool would
+    /// report a vehicle as inspection-ready on the strength of bytes that never arrived.
+    /// </summary>
+    [Fact]
+    public void IsReadyForInspection_IsNullWhenNoMonitorsWereReported()
+    {
+        Assert.Null(MonitorStatusDecoder.Decode([0x81]).IsReadyForInspection);
+        Assert.Null(Decode(0x00, 0x00, 0x00, 0x00).IsReadyForInspection);
+    }
+
     [Fact]
     public void ByteB_Bit3SelectsCompressionIgnition()
     {

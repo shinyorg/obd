@@ -76,6 +76,18 @@ triggers:
   - ambient air temperature
   - calibration id
   - ecu tune
+  - IVinDecoder
+  - VinVehicle
+  - VinNumber
+  - VpicVinDecoder
+  - AddVinDecoder
+  - vin decode
+  - vin decoder
+  - decode vin
+  - vpic
+  - nhtsa
+  - make model year
+  - vehicle lookup
   - obd ble
   - BleObdTransport
   - obd adapter
@@ -333,7 +345,7 @@ public parser and is testable without a transport.
 
 ```csharp
 var status = await connection.Execute(StandardCommands.MonitorStatus);
-if (!status.IsReadyForInspection)
+if (status.IsReadyForInspection == false)
     Report(status.Incomplete.Select(x => x.Monitor));
 ```
 
@@ -374,6 +386,54 @@ looking like measurements rather than like an absence.
 The mode 02 header is **three bytes** (`42 <PID> <frame>`), not two, because the frame number is
 echoed. `AsFreezeFrame` throws `ObdException` on a non-mode-01 command — mode 09 identifiers are not
 sampled at a moment, so there is no frame to ask for.
+
+## VIN Decoding (Shiny.Obd.Vin)
+
+Registration, and the only two forms that exist:
+
+```csharp
+services.AddVinDecoder();                        // built-in NHTSA vPIC
+services.AddVinDecoder<MyRegistryVinDecoder>();  // your own IVinDecoder
+```
+
+`AddVinDecoder` also calls `AddHttpClient()` and registers with `TryAddSingleton`, so the first
+registration wins. Do not hand-register `VpicVinDecoder`; do not resolve it by concrete type.
+
+```csharp
+var vin = await connection.Execute(StandardCommands.Vin);   // mode 09 PID 02
+var vehicle = await vinDecoder.Decode(vin);                 // null when it cannot be identified
+```
+
+`VinVehicle` (provider-neutral, every field nullable):
+
+| Property | Type | Bounds |
+|----------|------|--------|
+| `Make` / `Model` / `Trim` | `string?` | |
+| `ModelYear` | `int?` | 1900-2100 |
+| `FuelType` / `Electrification` | `string?` | |
+| `EngineCylinders` | `int?` | 1-16 |
+| `EngineDisplacementLitres` | `double?` | 0-20 |
+| `EngineHorsepower` | `int?` | 1-2000 |
+| `DriveType` / `BodyClass` / `TransmissionStyle` | `string?` | |
+| `IsUsable` | `bool` | make or model identified |
+
+Rules that matter when generating code against this:
+
+- **Never re-parse or re-clean the result.** The values arrive typed, bounded and with the
+  registries' `"Not Applicable"` / `"Not Available"` / `"N/A"` placeholders already stripped to null.
+  Writing a second cleaning pass in the consumer is the mistake this shape exists to prevent.
+- **Null means the registry had nothing.** Never substitute `"Unknown"` or `0` — these values reach
+  users and AI prompts, where a placeholder reads as a fact about the car.
+- **`IVinDecoder` never throws**, by contract. Do not wrap calls in try/catch for control flow, and
+  any implementation you write must return null rather than throwing or guessing.
+- **Coverage falls off outside North America.** A decode with a make and model and nothing else is a
+  success, not a failure — do not treat a missing displacement as an error.
+- `VinNumber.IsPlausible` / `Normalize` are the pure pre-check (17 chars, no I/O/Q). `Decode` applies
+  them itself, so only call them directly when you need to know *why* nothing came back. The check
+  digit is deliberately not validated — it is only mandatory in North America.
+- **Mode 01 PID 0x51 outranks the registry for fuel type.** `FuelTypes.Describe` off the bus needs no
+  network and is the more trustworthy source on a rebadged or grey-import vehicle:
+  `var fuel = fromBus ?? vehicle?.FuelType;`
 
 ## BLE Transport (Shiny.Obd.Ble)
 

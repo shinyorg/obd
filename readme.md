@@ -20,6 +20,7 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 - **Diagnostic trouble codes** — read stored, pending and permanent codes (modes 03/07/0A) as SAE J2012 strings, and clear them (mode 04). CAN and pre-CAN response framing are both handled.
 - **Emissions monitor readiness** — the full mode 01 PID 01/41 bit layout decoded for both spark and compression ignition, with `IsReadyForInspection` answering the question an emissions test actually asks.
 - **Freeze frames** — `AsFreezeFrame()` on any mode 01 command reads the same PID out of the snapshot the ECU stored when a code was set, so you get the conditions at the moment of the fault rather than the conditions now.
+- **VIN decoding** — `IVinDecoder` turns the VIN off the ECU into make, model, year and the engine/drivetrain/body a registry knows about. NHTSA vPIC ships built in (free, keyless); register your own provider with one line.
 
 ## Projects
 
@@ -185,7 +186,7 @@ var status = await connection.Execute(StandardCommands.MonitorStatus);
 Console.WriteLine($"MIL: {status.MilOn}, {status.DtcCount} stored code(s)");
 Console.WriteLine($"Ignition: {status.Ignition}");
 
-if (!status.IsReadyForInspection)
+if (status.IsReadyForInspection == false)
     Console.WriteLine($"Still running: {String.Join(", ", status.Incomplete.Select(x => x.Monitor))}");
 ```
 
@@ -289,6 +290,50 @@ public class CustomDiagnosticCommand : IObdCommand<string>
     }
 }
 ```
+
+## VIN Decoding
+
+The ECU reports its VIN on mode 09 PID 0x02, and a VIN is a licence plate for a *specification* —
+make, model, year, and the engine, drivetrain and body a registry knows about. **None of that last
+group exists on the OBD-II bus at any PID**, so a registry lookup is the only source.
+
+```csharp
+// Startup
+services.AddVinDecoder();          // NHTSA vPIC — free, keyless, no registration
+
+// Anywhere
+var vin = await connection.Execute(StandardCommands.Vin);
+var vehicle = await vinDecoder.Decode(vin);
+
+if (vehicle != null)
+    Console.WriteLine($"{vehicle.ModelYear} {vehicle.Make} {vehicle.Model} — {vehicle.EngineDisplacementLitres}L");
+```
+
+vPIC is a US federal registry: excellent for North America, thinner elsewhere. Substitute a
+commercial provider, a regional registry or an offline table without touching calling code:
+
+```csharp
+services.AddVinDecoder<MyRegistryVinDecoder>();
+```
+
+`VinVehicle` is provider-neutral and arrives **typed and cleaned** rather than as the strings a
+registry sends:
+
+- Numbers are parsed **invariantly** and bounded. Registries use an invariant decimal point, so a
+  naive parse under a comma-decimal culture reads `"3.5"` as thirty-five and reports a 35-litre
+  engine; out-of-range values are dropped to null rather than passed on.
+- The placeholders registries use for an empty string (`"Not Applicable"`, `"Not Available"`,
+  `"N/A"`) become null. A blank is an absence, never a claim — and these values commonly end up in
+  front of a user or in an AI prompt, where "Unknown" reads as a fact about the car.
+
+> ⚠️ **`IVinDecoder` never throws.** Callers are background enrichment, not features: being out of
+> signal is the ordinary case in a vehicle. It returns null rather than guessing, and any
+> implementation you register must do the same.
+
+`VinNumber.IsPlausible` is the pure pre-check — 17 characters from the VIN alphabet, with I, O and Q
+excluded because they are confusable with 1 and 0. The check digit is deliberately **not** validated:
+it is only mandatory in North America, so rejecting a legitimate non-NA VIN would cost more than one
+wasted request.
 
 ## Adapter Profiles
 
