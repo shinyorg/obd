@@ -15,7 +15,11 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 - **Adapter profiles** — `IObdAdapterProfile` lets you define custom init sequences. Built-in profiles for ELM327 and OBDLink.
 - **Multi-frame CAN responses** — the byte-count line and per-frame `N:` index an ELM327 prints for a large reply (the VIN, or mode 03 with three or more codes) are treated as framing and discarded, with spaced and unspaced hex both accepted.
 - **Task-based async** — fully async/await throughout, no Reactive Extensions required in consuming code.
-- **9 standard commands included** — speed, RPM, coolant temp, throttle, fuel level, engine load, intake air temp, runtime, and VIN.
+- **30+ standard commands included** — speed, RPM, temperatures, pressures, throttle and pedal position, fuel level, trims, rate and system status, timing advance, engine load, odometer, distances and timers, VIN, calibration IDs, hybrid battery life and more.
+- **Supported-PID discovery** — `SupportedPidsCommand` reads the mode 01 bitmask blocks so you only ever query readings the vehicle in front of you actually reports.
+- **Diagnostic trouble codes** — read stored, pending and permanent codes (modes 03/07/0A) as SAE J2012 strings, and clear them (mode 04). CAN and pre-CAN response framing are both handled.
+- **Emissions monitor readiness** — the full mode 01 PID 01/41 bit layout decoded for both spark and compression ignition, with `IsReadyForInspection` answering the question an emissions test actually asks.
+- **Freeze frames** — `AsFreezeFrame()` on any mode 01 command reads the same PID out of the snapshot the ECU stored when a code was set, so you get the conditions at the moment of the fault rather than the conditions now.
 
 ## Projects
 
@@ -104,6 +108,27 @@ All standard commands are available as singletons via `StandardCommands`:
 | `IntakeAirTemperature` | 01 | 0F | `int` | °C |
 | `RuntimeSinceStart` | 01 | 1F | `TimeSpan` | — |
 | `Vin` | 09 | 02 | `string` | — |
+| `Odometer` | 01 | A6 | `double` | km |
+| `DistanceSinceCodesCleared` | 01 | 31 | `int` | km |
+| `ControlModuleVoltage` | 01 | 42 | `double` | V |
+| `MassAirFlow` | 01 | 10 | `double` | g/s |
+| `EngineFuelRate` | 01 | 5E | `double` | L/h |
+| `EngineOilTemperature` | 01 | 5C | `int` | °C |
+| `FuelType` | 01 | 51 | `byte` | J1979 code |
+| `HybridBatteryLife` | 01 | 5B | `double` | % |
+| `MonitorStatus` | 01 | 01 | `MonitorStatus` | MIL, code count, readiness |
+| `MonitorStatusThisDriveCycle` | 01 | 41 | `MonitorStatus` | readiness, this cycle |
+| `FuelSystemStatus` | 01 | 03 | `FuelSystemStatus` | loop state |
+| `IntakeManifoldPressure` | 01 | 0B | `int` | kPa |
+| `BarometricPressure` | 01 | 33 | `int` | kPa |
+| `TimingAdvance` | 01 | 0E | `double` | ° BTDC |
+| `AmbientAirTemperature` | 01 | 46 | `int` | °C |
+| `RelativeAcceleratorPedalPosition` | 01 | 5A | `double` | % |
+| `CommandedThrottleActuator` | 01 | 4C | `double` | % |
+| `DistanceWithMilOn` | 01 | 21 | `int` | km |
+| `TimeRunWithMilOn` | 01 | 4D | `TimeSpan` | minutes |
+| `TimeSinceCodesCleared` | 01 | 4E | `TimeSpan` | minutes |
+| `CalibrationId` | 09 | 04 | `IReadOnlyList<string>` | — |
 
 ```csharp
 var speed = await connection.Execute(StandardCommands.VehicleSpeed);
@@ -115,6 +140,115 @@ var load = await connection.Execute(StandardCommands.CalculatedEngineLoad);
 var intakeTemp = await connection.Execute(StandardCommands.IntakeAirTemperature);
 var runtime = await connection.Execute(StandardCommands.RuntimeSinceStart);
 var vin = await connection.Execute(StandardCommands.Vin);
+
+// MIL state and how many confirmed codes are stored
+var status = await connection.Execute(StandardCommands.MonitorStatus);
+Console.WriteLine($"Check engine: {status.MilOn}, {status.DtcCount} code(s)");
+
+// Fuel type is a J1979 code — FuelTypes turns it into a name, or null when it is
+// 0x00 ("not available") or outside the table. Read it once per connection; a vehicle
+// does not change what it burns between polls.
+var fuelType = FuelTypes.Describe(await connection.Execute(StandardCommands.FuelType));
+```
+
+Commands that need construction data are not on `StandardCommands`:
+
+```csharp
+// Fuel trim takes a bank — 128 is zero correction, positive means the ECU is adding fuel
+var shortTerm = await connection.Execute(FuelTrimCommand.ShortTermBank1());   // 0106
+var longTerm = await connection.Execute(FuelTrimCommand.LongTermBank1());     // 0107
+
+// Pedal position takes a sensor. This is the driver's *input* — unlike ThrottlePosition
+// (PID 0x11), which is absolute throttle plate position and carries a 12-18% closed floor
+var pedal = await connection.Execute(AcceleratorPedalPositionCommand.D());    // 0149
+```
+
+Fuel trims only mean anything in closed loop — in open loop the ECU runs a fixed map with no oxygen
+sensor feedback, so a trim figure there says nothing about a leak or a lazy sensor:
+
+```csharp
+var fuelSystem = await connection.Execute(StandardCommands.FuelSystemStatus);
+if (fuelSystem.IsClosedLoop)
+    RecordTrim(await connection.Execute(FuelTrimCommand.ShortTermBank1()));
+```
+
+### Emissions Monitor Readiness
+
+`MonitorStatus` decodes the whole of PID 0x01, not just the lamp. `Monitors` lists only the monitors
+the vehicle actually supports — one that does not exist on a car has no readiness state worth
+showing — and the bit layout differs between spark and compression ignition, which the decoder
+selects for you.
+
+```csharp
+var status = await connection.Execute(StandardCommands.MonitorStatus);
+
+Console.WriteLine($"MIL: {status.MilOn}, {status.DtcCount} stored code(s)");
+Console.WriteLine($"Ignition: {status.Ignition}");
+
+if (!status.IsReadyForInspection)
+    Console.WriteLine($"Still running: {String.Join(", ", status.Incomplete.Select(x => x.Monitor))}");
+```
+
+A vehicle whose codes were recently cleared reads not-ready for several drive cycles with nothing
+wrong with it — `StandardCommands.TimeSinceCodesCleared` (PID 0x4E) is what tells you which case
+you are in. `MonitorStatusThisDriveCycle` (PID 0x41) reports the same monitors for the current
+cycle only; its byte A is reserved, so its `MilOn` and `DtcCount` are always empty.
+
+### Freeze Frames (mode 02)
+
+Mode 02 accepts the same PIDs as mode 01 and scales them identically, so there is no separate
+command per reading — call `AsFreezeFrame()` on the mode 01 command you already have. What you get
+back is the vehicle's state at the instant a code was set, rather than its state now.
+
+```csharp
+var causal = await connection.Execute(FreezeFrameCommands.CausalDtc());
+if (causal != null)
+{
+    Console.WriteLine($"{causal} was set at:");
+    Console.WriteLine(await connection.Execute(StandardCommands.EngineRpm.AsFreezeFrame()));
+    Console.WriteLine(await connection.Execute(StandardCommands.CalculatedEngineLoad.AsFreezeFrame()));
+    Console.WriteLine(await connection.Execute(StandardCommands.CoolantTemperature.AsFreezeFrame()));
+}
+```
+
+> ⚠️ **Always check `CausalDtc` first.** When it answers null there is no stored snapshot, and every
+> other mode 02 reading is meaningless rather than merely absent — the frame is zero-filled, so an
+> engine load of 0% and a coolant temperature of -40 °C come back looking like measurements.
+
+### Supported PIDs
+
+Querying an unsupported PID just returns NO DATA, so probe the bitmask blocks up front and offer
+only the readings the vehicle actually answers. Each block reports the 32 PIDs that follow it.
+
+```csharp
+var supported = new HashSet<byte>();
+foreach (var block in SupportedPidsCommand.BlockPids)   // 00, 20, 40, 60, 80, A0, C0
+{
+    var pids = await connection.Execute(new SupportedPidsCommand(block));
+    foreach (var pid in pids)
+        supported.Add(pid);
+}
+
+if (supported.Contains(0xA6))
+    odometerKm = await connection.Execute(StandardCommands.Odometer);
+```
+
+An unsupported reading should surface to your users as *missing*, not as zero — the odometer PID is
+absent on most vehicles, and hybrid battery life is absent on every vehicle without a pack.
+
+### Diagnostic Trouble Codes
+
+`DtcReadCommand` returns SAE J2012 code strings (`"P0301"`). The CAN and pre-CAN response framings
+are distinguished by payload parity, so the same command works across protocols.
+
+```csharp
+var stored = await connection.Execute(DtcReadCommand.Stored);        // mode 03 — these turn the MIL on
+var pending = await connection.Execute(DtcReadCommand.Pending);      // mode 07 — current/last drive cycle
+var permanent = await connection.Execute(DtcReadCommand.Permanent);  // mode 0A — only the ECU clears these
+
+// Mode 04 also resets the emissions readiness monitors, which then take several drive cycles
+// to re-run. Only ever issue this from an explicitly confirmed user action.
+var cleared = await connection.Execute(ClearDtcCommand.Instance);
 ```
 
 ### Custom Commands
