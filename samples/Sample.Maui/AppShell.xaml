@@ -10,24 +10,29 @@
 
         <!-- Client role: find and read a real adapter -->
         <ShellContent Title="Scan"
+                      Icon="tab_scan.png"
                       ContentTemplate="{DataTemplate local:ScanPage}"
                       Route="scan" />
 
         <!-- Adapter role: be the adapter, over BLE and TCP at once -->
         <ShellContent Title="Adapter"
+                      Icon="tab_adapter.png"
                       ContentTemplate="{DataTemplate local:HostPage}"
                       Route="host" />
 
         <!-- Play a drive into the emulator so the values move on their own -->
         <ShellContent Title="Drive"
+                      Icon="tab_drive.png"
                       ContentTemplate="{DataTemplate local:DrivePage}"
                       Route="drive" />
 
         <ShellContent Title="Values"
+                      Icon="tab_values.png"
                       ContentTemplate="{DataTemplate local:ParametersPage}"
                       Route="values" />
 
         <ShellContent Title="Faults"
+                      Icon="tab_faults.png"
                       ContentTemplate="{DataTemplate local:FaultsPage}"
                       Route="faults" />
 

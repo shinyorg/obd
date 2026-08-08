@@ -6,9 +6,10 @@ namespace Sample.Maui.Emulator;
 /// Starts and stops both front-ends and collects what they see, so the UI has one thing to bind to.
 /// </summary>
 /// <remarks>
-/// Started once at launch from <see cref="App"/> - the emulator is meant to be live the moment the app
-/// is open, not after you have found the right tab and pressed a button. Both transports run at the
-/// same time and share one vehicle: a value you change is answered identically over BLE and TCP.
+/// Started from the Adapter tab rather than at launch: a device that is only here to read a real
+/// adapter has no business advertising a GATT service and holding a TCP listener open. Both transports
+/// then run at the same time and share one vehicle: a value you change is answered identically over
+/// BLE and TCP.
 /// </remarks>
 public partial class ObdHostService(
     BleObdPeripheral ble,

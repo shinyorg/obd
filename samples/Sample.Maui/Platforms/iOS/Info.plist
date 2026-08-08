@@ -30,6 +30,12 @@
 	<string>Assets.xcassets/appicon.appiconset</string>
 	<key>UILaunchStoryboardName</key>
 	<string>MauiSplash</string>
+	<!-- No UIBackgroundModes on purpose. Adding bluetooth-central / bluetooth-peripheral here is what
+	     lets iOS keep scanning, connections and GATT advertising alive once the app is backgrounded,
+	     and this sample has no reason to: it is a foreground scan tool. Leave this out, and leave
+	     AppleBleConfiguration.RestoreIdentifier unset in MauiProgram - the restore identifier only
+	     does anything with the background mode declared, and setting one implies an app that expects
+	     to be relaunched into the background. -->
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>This app uses Bluetooth to connect to your OBD-II vehicle adapter, and to act as one for testing.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
