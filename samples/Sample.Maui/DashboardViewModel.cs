@@ -7,7 +7,8 @@ namespace Sample.Maui;
 
 [ShellMap<DashboardPage>("dashboard")]
 public partial class DashboardViewModel(
-    BleObdConfiguration config
+    BleObdConfiguration config,
+    INavigator navigator
 ) : ObservableObject, IPageLifecycleAware, IDisposable
 {
     IObdConnection? connection;
@@ -38,6 +39,14 @@ public partial class DashboardViewModel(
         else
             await this.ConnectToDevice();
     }
+
+    /// <summary>
+    /// Hands the adapter over to the sweep page. The poll loop here holds the only connection, and
+    /// <see cref="OnDisappearing"/> drops it before the sweep page opens its own.
+    /// </summary>
+    [RelayCommand]
+    Task ShowAllCommands()
+        => navigator.NavigateTo<CommandsViewModel>(vm => vm.Device = this.Device);
 
     public void OnAppearing()
     {

@@ -6,7 +6,6 @@
     <File Path="build.slnf" />
     <File Path="Directory.build.props" />
     <File Path="Directory.packages.props" />
-    <File Path="global.json" />
     <File Path="LICENSE" />
     <File Path="nuget.config" />
     <File Path="nuget.txt" />

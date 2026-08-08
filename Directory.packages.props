@@ -3,8 +3,6 @@
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     </PropertyGroup>
     <ItemGroup>
-        <!-- Shiny 5.4.0 depends on Microsoft.Extensions.* 10.0.7, so 10.0.5 here reads as a downgrade.
-             Aligned on 10.0.10 to match System.IO.Ports below. -->
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10"/>
         <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10"/>
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10"/>
