@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Sample.Maui"
+    xmlns:sys="clr-namespace:System;assembly=netstandard"
+    x:Class="Sample.Maui.FaultsPage"
+    x:DataType="local:FaultsViewModel"
+    Title="Faults &amp; Identity">
+
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="12">
+
+            <!-- Adapter identity -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="ADAPTER IDENTITY" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Entry Text="{Binding State.AdapterIdentifier}" Placeholder="ATI response" />
+                    <Label
+                        Text="What ATI answers. Shiny picks the ObdLink profile when this contains &quot;STN&quot; and the ELM327 profile otherwise."
+                        FontSize="11"
+                        TextColor="Gray" />
+                    <Entry Text="{Binding State.DeviceDescription}" Placeholder="AT@1 response" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Vehicle condition -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="VEHICLE CONDITION" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Malfunction indicator lamp" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding State.MilOn}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Readiness monitors complete" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding State.MonitorsComplete}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Compression ignition (diesel)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding State.CompressionIgnition}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Freeze frame stored" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding State.FreezeFrameCaptured}" />
+                    </Grid>
+
+                    <Entry Text="{Binding State.FreezeFrameDtc}" Placeholder="Freeze frame causal DTC" />
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Ignition off (answer UNABLE TO CONNECT)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding State.EngineOff}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding Error}" TextColor="OrangeRed" FontSize="12" IsVisible="{Binding HasError}" />
+
+            <!-- Stored codes (mode 03) -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="STORED CODES — MODE 03" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Entry Text="{Binding NewStoredDtc}" Placeholder="eg P0301" />
+                        <Button Grid.Column="1" Text="Add" Command="{Binding AddStoredCommand}" Padding="16,4" HeightRequest="40" />
+                    </Grid>
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding State.StoredDtcs}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sys:String">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding .}" FontFamily="Monospace" VerticalOptions="Center" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Text="Remove"
+                                        FontSize="11"
+                                        Padding="10,2"
+                                        HeightRequest="30"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type local:FaultsViewModel}}, Path=RemoveStoredCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Pending codes (mode 07) -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="PENDING CODES — MODE 07" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Entry Text="{Binding NewPendingDtc}" Placeholder="eg P0442" />
+                        <Button Grid.Column="1" Text="Add" Command="{Binding AddPendingCommand}" Padding="16,4" HeightRequest="40" />
+                    </Grid>
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding State.PendingDtcs}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sys:String">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding .}" FontFamily="Monospace" VerticalOptions="Center" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Text="Remove"
+                                        FontSize="11"
+                                        Padding="10,2"
+                                        HeightRequest="30"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type local:FaultsViewModel}}, Path=RemovePendingCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Permanent codes (mode 0A) -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="PERMANENT CODES — MODE 0A" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Label Text="Mode 04 does not clear these, which is the point of them." FontSize="11" TextColor="Gray" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Entry Text="{Binding NewPermanentDtc}" Placeholder="eg P0420" />
+                        <Button Grid.Column="1" Text="Add" Command="{Binding AddPermanentCommand}" Padding="16,4" HeightRequest="40" />
+                    </Grid>
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding State.PermanentDtcs}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sys:String">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding .}" FontFamily="Monospace" VerticalOptions="Center" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Text="Remove"
+                                        FontSize="11"
+                                        Padding="10,2"
+                                        HeightRequest="30"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type local:FaultsViewModel}}, Path=RemovePermanentCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Clear codes (as mode 04 would)" Command="{Binding ClearAllCommand}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

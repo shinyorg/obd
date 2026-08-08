@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Sample.Maui"
+    xmlns:emu="clr-namespace:Sample.Maui.Emulator"
+    x:Class="Sample.Maui.HostPage"
+    x:DataType="local:HostViewModel"
+    Title="OBD Adapter Emulator">
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="12">
+
+        <!-- Transport status -->
+        <VerticalStackLayout Spacing="8">
+
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="BLUETOOTH LE" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Label Text="{Binding Host.BleStatus}" FontSize="14" />
+                    <Label Text="{Binding BleSummary}" FontSize="11" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="TCP / WIFI" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Label Text="{Binding Host.TcpStatus}" FontSize="14" />
+                    <Label Text="{Binding Host.TcpEndpoints}" FontSize="12" FontFamily="Monospace" />
+                    <Label Text="{Binding Host.MdnsStatus}" FontSize="11" TextColor="Gray" />
+                    <Label Text="{Binding MdnsSummary}" FontSize="11" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="{Binding HostButtonText}" Command="{Binding ToggleHostCommand}" />
+
+        </VerticalStackLayout>
+
+        <!-- Connected clients -->
+        <Border Grid.Row="1" Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+            <VerticalStackLayout Spacing="6">
+
+                <Label Text="{Binding Host.ClientSummary}" FontSize="14" FontAttributes="Bold" />
+
+                <Label
+                    Text="Nothing is connected yet. Connect from the Scan tab on another device, or point an OBD app at one of the addresses above."
+                    FontSize="11"
+                    TextColor="Gray"
+                    IsVisible="{Binding Host.HasNoClients}" />
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Host.Clients}" Spacing="4">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="emu:HostedClient">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Title}" FontSize="13" FontAttributes="Bold" />
+                                <Label Text="{Binding Detail}" FontSize="11" TextColor="Gray" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- Live command log -->
+        <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="6">
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="COMMAND LOG" FontSize="11" FontAttributes="Bold" TextColor="Gray" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="Clear" Command="{Binding ClearLogCommand}" FontSize="12" Padding="12,4" HeightRequest="32" />
+            </Grid>
+
+            <CollectionView Grid.Row="1" ItemsSource="{Binding Host.Log}" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label
+                        Text="Every AT command and PID request will appear here as it arrives."
+                        HorizontalTextAlignment="Center"
+                        VerticalOptions="Center"
+                        TextColor="Gray" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="emu:ObdLogEntry">
+                        <VerticalStackLayout Padding="0,4">
+                            <Label Text="{Binding Title}" FontSize="12" FontFamily="Monospace" />
+                            <Label Text="{Binding Detail}" FontSize="11" TextColor="Gray" FontFamily="Monospace" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </Grid>
+
+    </Grid>
+</ContentPage>

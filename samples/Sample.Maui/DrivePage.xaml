@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Sample.Maui"
+    x:Class="Sample.Maui.DrivePage"
+    x:DataType="local:DriveViewModel"
+    Title="Drive Scenarios">
+
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="12">
+
+            <!-- Scenario selection -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="SCENARIO" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+
+                    <Picker
+                        ItemsSource="{Binding Player.Scenarios}"
+                        SelectedItem="{Binding Player.Scenario}" />
+
+                    <Label Text="{Binding Player.ScenarioSummary}" FontSize="11" TextColor="Gray" />
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Button Text="{Binding Player.ButtonText}" Command="{Binding ToggleCommand}" />
+                        <Button
+                            Grid.Column="1"
+                            Text="Restart"
+                            Command="{Binding RestartCommand}"
+                            IsEnabled="{Binding Player.IsRunning}"
+                            Padding="16,0" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Where the drive is up to -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="NOW DRIVING" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Label Text="{Binding Player.StepLabel}" FontSize="16" />
+                    <Label Text="{Binding Player.ElapsedLabel}" FontSize="12" FontFamily="Monospace" TextColor="Gray" />
+                    <Label Text="{Binding Player.Laps, StringFormat='{0} lap(s) completed'}" FontSize="11" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Live model read-out -->
+            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="12">
+
+                    <Label Grid.ColumnSpan="2" Text="LIVE VALUES" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+
+                    <VerticalStackLayout Grid.Row="1">
+                        <Label Text="Speed" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.SpeedKph, StringFormat='{0:0} km/h'}" FontSize="20" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="1" Grid.Column="1">
+                        <Label Text="Engine" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.Rpm, StringFormat='{0:0} rpm'}" FontSize="20" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="2">
+                        <Label Text="Throttle" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.ThrottlePercent, StringFormat='{0:0} %'}" FontSize="16" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="2" Grid.Column="1">
+                        <Label Text="Engine load" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.LoadPercent, StringFormat='{0:0} %'}" FontSize="16" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="3">
+                        <Label Text="Gear" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.GearLabel}" FontSize="16" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="3" Grid.Column="1">
+                        <Label Text="Coolant" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.CoolantTemperature, StringFormat='{0:0} °C'}" FontSize="16" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="4">
+                        <Label Text="Mass air flow" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.MassAirFlow, StringFormat='{0:0.0} g/s'}" FontSize="16" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Row="4" Grid.Column="1">
+                        <Label Text="Fuel rate" FontSize="11" TextColor="Gray" />
+                        <Label Text="{Binding Player.FuelRate, StringFormat='{0:0.0} L/h'}" FontSize="16" FontFamily="Monospace" />
+                    </VerticalStackLayout>
+
+                </Grid>
+            </Border>
+
+            <Label
+                Text="A running scenario writes the mode 01 parameters five times a second - speed, RPM, throttle, load, air flow, temperatures, trip counters and the oxygen sensors, all derived from one model of the car. Anything you type on the Values tab for those PIDs is overwritten until you stop the drive. Faults, adapter identity and every other PID stay under your control."
+                FontSize="11"
+                TextColor="Gray" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

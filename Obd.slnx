@@ -16,6 +16,8 @@
   </Folder>
   <Project Path="src/Shiny.Obd/Shiny.Obd.csproj" />
   <Project Path="src/Shiny.Obd.Ble/Shiny.Obd.Ble.csproj" />
+  <Project Path="src/Shiny.Obd.Serial/Shiny.Obd.Serial.csproj" />
+  <Project Path="src/Shiny.Obd.Wifi/Shiny.Obd.Wifi.csproj" />
   <Project Path="tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj" />
   <Project Path="samples/Sample.Maui/Sample.Maui.csproj" />
 </Solution>

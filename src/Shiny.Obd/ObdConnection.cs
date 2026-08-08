@@ -11,7 +11,16 @@ namespace Shiny.Obd;
 /// ELM327-based OBD connection. Handles initialization, command execution,
 /// and response parsing over any <see cref="IObdTransport"/>.
 /// </summary>
-public class ObdConnection : IObdConnection
+/// <remarks>
+/// Implements <see cref="IDisposable"/> as well as the interface's <see cref="IAsyncDisposable"/>.
+/// That is not redundancy: a DI container checks the *concrete* type for <c>IDisposable</c> when a
+/// container-owned singleton is torn down, and throws
+/// <c>InvalidOperationException: type only implements IAsyncDisposable</c> if it finds none on the
+/// synchronous path. Hosts dispose their provider asynchronously, but a console app or a test doing
+/// <c>using var provider = services.BuildServiceProvider()</c> does not — and would fail on exit
+/// rather than anywhere near the cause.
+/// </remarks>
+public class ObdConnection : IObdConnection, IDisposable
 {
     readonly IObdTransport transport;
     readonly IObdAdapterProfile? profile;
@@ -81,6 +90,28 @@ public class ObdConnection : IObdConnection
     }
 
     public ValueTask DisposeAsync() => this.transport.DisposeAsync();
+
+    public void Dispose()
+    {
+        // Prefer a transport's own synchronous teardown when it has one. The built-in transports do,
+        // and their DisposeAsync completes synchronously anyway.
+        if (this.transport is IDisposable sync)
+        {
+            sync.Dispose();
+        }
+        else
+        {
+            // A third-party transport that is genuinely async. Blocking is the honest option here —
+            // the alternative is abandoning the teardown, which leaks the underlying handle.
+            var pending = this.transport.DisposeAsync();
+            if (pending.IsCompleted)
+                pending.GetAwaiter().GetResult();
+            else
+                pending.AsTask().GetAwaiter().GetResult();
+        }
+
+        GC.SuppressFinalize(this);
+    }
 
     static ObdAdapterInfo ParseAdapterInfo(string atiResponse)
     {

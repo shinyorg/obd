@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Shiny.Obd.svg?style=flat-square)](https://www.nuget.org/packages/Shiny.Obd/)
 
-A .NET library for communicating with vehicles through OBD-II (On-Board Diagnostics) adapters. Supports ELM327 and OBDLink (STN) adapters over pluggable transports, starting with Bluetooth LE.
+A .NET library for communicating with vehicles through OBD-II (On-Board Diagnostics) adapters. Supports ELM327 and OBDLink (STN) adapters over pluggable transports — Bluetooth LE, WiFi and serial (USB/UART) ship in the box.
 
 [Documentation](https://shinylib.net/client/obd)
 
@@ -10,17 +10,23 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 
 - **Command-object pattern** — OBD commands are objects, not methods. Pass built-in commands or create your own for custom PIDs.
 - **Generic return types** — each command declares its return type (`int`, `double`, `string`, `TimeSpan`, etc.) with compile-time safety.
-- **Pluggable transports** — `IObdTransport` abstracts the communication channel. Ship with BLE; add WiFi or USB later.
+- **Pluggable transports** — `IObdTransport` abstracts the communication channel. BLE, WiFi and serial (USB/UART) ship in the box; add anything else with one interface.
+- **WiFi works everywhere** — a WiFi adapter is a plain TCP socket, so `Shiny.Obd.Wifi` behaves identically on iOS, Android, Windows, Linux and macOS. No platform package, no pairing, no BLE stack.
 - **Adapter auto-detection** — detects ELM327 vs OBDLink (STN) adapters via ATI and runs the appropriate initialization sequence.
 - **Adapter profiles** — `IObdAdapterProfile` lets you define custom init sequences. Built-in profiles for ELM327 and OBDLink.
 - **Multi-frame CAN responses** — the byte-count line and per-frame `N:` index an ELM327 prints for a large reply (the VIN, or mode 03 with three or more codes) are treated as framing and discarded, with spaced and unspaced hex both accepted.
 - **Task-based async** — fully async/await throughout, no Reactive Extensions required in consuming code.
-- **30+ standard commands included** — speed, RPM, temperatures, pressures, throttle and pedal position, fuel level, trims, rate and system status, timing advance, engine load, odometer, distances and timers, VIN, calibration IDs, hybrid battery life and more.
+- **60+ standard commands included** — speed, RPM, temperatures, pressures, throttle and pedal position, fuel level, trims, rate and system status, timing advance, engine load, odometer, distances and timers, VIN, calibration IDs, hybrid battery life and more.
+- **Oxygen sensors, narrowband and wideband** — the measurement behind the fuel trim. Sensor presence and layout, narrowband voltage with its associated trim, and wideband lambda with either voltage or pump current.
+- **EGR and EVAP** — commanded position and error for EGR, purge command and all three vapour-pressure encodings for EVAP. The two most common causes of a check engine light.
+- **Torque and power** — actual and demanded torque against the engine's reference figure, with `EnginePower` turning the percentages into newton-metres, kilowatts and horsepower.
+- **Mode 06 on-board test results** — the actual measurement each emissions monitor took and the limits it was judged against, fully scaled through the SAE unit-and-scaling table, with `BandPosition` showing how close a passing test is to failing.
 - **Supported-PID discovery** — `SupportedPidsCommand` reads the mode 01 bitmask blocks so you only ever query readings the vehicle in front of you actually reports.
 - **Diagnostic trouble codes** — read stored, pending and permanent codes (modes 03/07/0A) as SAE J2012 strings, and clear them (mode 04). CAN and pre-CAN response framing are both handled.
 - **Emissions monitor readiness** — the full mode 01 PID 01/41 bit layout decoded for both spark and compression ignition, with `IsReadyForInspection` answering the question an emissions test actually asks.
 - **Freeze frames** — `AsFreezeFrame()` on any mode 01 command reads the same PID out of the snapshot the ECU stored when a code was set, so you get the conditions at the moment of the fault rather than the conditions now.
 - **VIN decoding** — `IVinDecoder` turns the VIN off the ECU into make, model, year and the engine/drivetrain/body a registry knows about. NHTSA vPIC ships built in (free, keyless); register your own provider with one line.
+- **Test without a car** — the [sample app](samples/Sample.Maui) is also an adapter. It hosts an ELM327-compatible OBD-II bus over BLE *and* TCP, with every PID, trouble code and readiness flag set from a UI. See [Adapter Emulator](#adapter-emulator-sample).
 
 ## Projects
 
@@ -28,6 +34,8 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 |---------|--------|-------------|
 | `Shiny.Obd` | `net10.0` | Core library — commands, connection, transport abstraction |
 | `Shiny.Obd.Ble` | `net10.0` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
+| `Shiny.Obd.Serial` | `net10.0` | Serial (USB/UART) transport — Windows, Linux, macOS, Mac Catalyst |
+| `Shiny.Obd.Wifi` | `net10.0` | WiFi (TCP) transport — every platform, including iOS and Android |
 
 ## Quick Start
 
@@ -39,7 +47,45 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 
 <!-- BLE transport -->
 <PackageReference Include="Shiny.Obd.Ble" />
+
+<!-- Serial (USB/UART) transport -->
+<PackageReference Include="Shiny.Obd.Serial" />
+
+<!-- WiFi (TCP) transport -->
+<PackageReference Include="Shiny.Obd.Wifi" />
 ```
+
+### Registration
+
+```csharp
+// WiFi — every platform, including iOS and Android
+services.AddShinyObdWifi();
+
+// Serial — Windows, Linux, macOS, Mac Catalyst
+services.AddShinyObdSerial(config => config.PortNameFilter = "OBDLink");
+
+// BLE — every platform Shiny.BluetoothLE supports
+services.AddShinyObdBluetoothLE();
+```
+
+Each registers `IObdTransport`, `IObdConnection` and `IObdDeviceScanner` as singletons — an adapter is
+one physical resource. Registration uses `TryAdd`, so calling more than one leaves whichever ran first
+in place rather than silently swapping the transport; if you want a **fallback chain** across
+transports, construct them yourself instead of registering several.
+
+On iOS and Android `AddShinyObdBluetoothLE()` registers the BLE manager for you. **Everywhere else
+you also call `AddBluetoothLE()`** from your platform package — order does not matter:
+
+```csharp
+services.AddBluetoothLE();          // Shiny.BluetoothLE.Linux / .Blazor / .BluetoothLE
+services.AddShinyObdBluetoothLE();
+```
+
+That split is a hard constraint, not an omission: `Shiny.BluetoothLE.Linux` and
+`Shiny.BluetoothLE.Blazor` both ship a `net10.0` assembly declaring
+`Shiny.AddBluetoothLE(IServiceCollection)`, so a package referencing both would make every call to it
+ambiguous (CS0121). Only the app knows which platform it is running on. Forget the call and you get a
+`ObdException` naming the exact package to add, rather than a bare DI resolution failure.
 
 ### 2. Connect and query
 
@@ -85,10 +131,14 @@ Console.WriteLine($"Speed: {speed} km/h, RPM: {rpm}, VIN: {vin}");
 ┌──────────────────────▼──────────────────────────┐
 │             IObdTransport                       │
 │  Pluggable transport layer                      │
-│  ┌──────────────┐  ┌────────┐  ┌─────────┐     │
-│  │ BleObdTransport│  │ WiFi  │  │  USB    │     │
-│  │ (Shiny BLE)  │  │(future)│  │(future) │     │
-│  └──────────────┘  └────────┘  └─────────┘     │
+│  ┌──────────────────┐  ┌────────────────────┐   │
+│  │  BleObdTransport │  │ SerialObdTransport │   │
+│  │    (Shiny BLE)   │  │    (USB / UART)    │   │
+│  └──────────────────┘  └────────────────────┘   │
+│  ┌──────────────────┐  ┌────────────────────┐   │
+│  │ WifiObdTransport │  │      your own      │   │
+│  │       (TCP)      │  │         …          │   │
+│  └──────────────────┘  └────────────────────┘   │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -130,6 +180,30 @@ All standard commands are available as singletons via `StandardCommands`:
 | `TimeRunWithMilOn` | 01 | 4D | `TimeSpan` | minutes |
 | `TimeSinceCodesCleared` | 01 | 4E | `TimeSpan` | minutes |
 | `CalibrationId` | 09 | 04 | `IReadOnlyList<string>` | — |
+| `CommandedAirFuelRatio` | 01 | 44 | `double` | lambda |
+| `CommandedEgr` | 01 | 2C | `double` | % |
+| `EgrError` | 01 | 2D | `double` | % |
+| `CommandedEvaporativePurge` | 01 | 2E | `double` | % |
+| `EvapVaporPressure` | 01 | 32 | `double` | Pa (signed) |
+| `AbsoluteEvapVaporPressure` | 01 | 53 | `double` | kPa |
+| `EvapVaporPressureWideRange` | 01 | 54 | `double` | Pa (signed) |
+| `DriverDemandTorque` | 01 | 61 | `int` | % |
+| `ActualEngineTorque` | 01 | 62 | `int` | % |
+| `ReferenceTorque` | 01 | 63 | `int` | N·m |
+| `EnginePercentTorqueData` | 01 | 64 | `EnginePercentTorqueData` | % |
+| `FuelPressure` | 01 | 0A | `int` | kPa |
+| `FuelRailPressure` | 01 | 22 | `double` | kPa |
+| `FuelRailGaugePressure` | 01 | 23 | `int` | kPa |
+| `FuelRailAbsolutePressure` | 01 | 59 | `int` | kPa |
+| `EthanolFuelPercent` | 01 | 52 | `double` | % |
+| `AbsoluteLoadValue` | 01 | 43 | `double` | % |
+| `WarmUpsSinceCodesCleared` | 01 | 30 | `int` | count |
+| `RelativeThrottlePosition` | 01 | 45 | `double` | % |
+| `FuelInjectionTiming` | 01 | 5D | `double` | ° |
+| `EngineRunTime` | 01 | 7F | `EngineRunTime` | — |
+| `ObdStandards` | 01 | 1C | `byte` | J1979 code |
+| `CalibrationVerificationNumber` | 09 | 06 | `IReadOnlyList<string>` | hex |
+| `EcuName` | 09 | 0A | `string` | — |
 
 ```csharp
 var speed = await connection.Execute(StandardCommands.VehicleSpeed);
@@ -162,6 +236,14 @@ var longTerm = await connection.Execute(FuelTrimCommand.LongTermBank1());     //
 // Pedal position takes a sensor. This is the driver's *input* — unlike ThrottlePosition
 // (PID 0x11), which is absolute throttle plate position and carries a 12-18% closed floor
 var pedal = await connection.Execute(AcceleratorPedalPositionCommand.D());    // 0149
+
+// Oxygen sensors take a 1-8 index; throttle sensors B and C have their own factories
+var o2 = await connection.Execute(OxygenSensorVoltageCommand.Sensor(1));      // 0114
+var wideband = await connection.Execute(OxygenSensorLambdaCommand.WithCurrent(1));  // 0134
+var throttleB = await connection.Execute(AbsoluteThrottlePositionCommand.B()); // 0147
+
+// In-use performance tracking differs by engine type
+var ipt = await connection.Execute(InUsePerformanceTrackingCommand.Spark());  // 0908
 ```
 
 Fuel trims only mean anything in closed loop — in open loop the ECU runs a fixed map with no oxygen
@@ -251,6 +333,167 @@ var permanent = await connection.Execute(DtcReadCommand.Permanent);  // mode 0A 
 // to re-run. Only ever issue this from an explicitly confirmed user action.
 var cleared = await connection.Execute(ClearDtcCommand.Instance);
 ```
+
+### Oxygen Sensors
+
+Fuel trim tells you the ECU's correction; the oxygen sensor tells you the measurement causing it. The
+pair is what separates a genuine mixture problem from a failing sensor.
+
+**Read the layout first, and not just to skip absent sensors.** A vehicle answers either PID `0x13`
+(two banks of four) or PID `0x1D` (four banks of two), never both — and which one it answers changes
+what every sensor PID *means*:
+
+```csharp
+var layout = await connection.Execute(OxygenSensorsPresentCommand.TwoBanks());   // or .FourBanks()
+
+foreach (var sensor in layout.Sensors)
+{
+    var reading = await connection.Execute(OxygenSensorVoltageCommand.Sensor(sensor.SensorIndex));
+    Console.WriteLine($"{sensor} — {reading.Volts:F3} V, trim {reading.ShortTermFuelTrim:F1}%");
+}
+```
+
+PID `0x16` is bank 1 sensor 3 under the first layout and bank 2 sensor 1 under the second. Label a
+reading from the wrong one and you send someone to replace the downstream sensor on the wrong bank,
+which is why `layout.Position(index)` exists rather than leaving the mapping to callers.
+
+Narrowband sensors answer `OxygenSensorVoltageCommand` (PIDs `0x14`–`0x1B`); widebands answer
+`OxygenSensorLambdaCommand` (`0x24`–`0x2B` with voltage, or `0x34`–`0x3B` with pump current). Probe
+with `SupportedPidsCommand` — the two report voltages that are **not** comparable.
+
+```csharp
+var wide = await connection.Execute(OxygenSensorLambdaCommand.WithCurrent(1));
+Console.WriteLine($"Lambda {wide.Lambda:F3} ({wide.PetrolAirFuelRatio:F1}:1), {wide.Milliamps:F1} mA");
+
+// The target, for comparison against the measurement above
+var commanded = await connection.Execute(StandardCommands.CommandedAirFuelRatio);
+```
+
+> A healthy **upstream** narrowband oscillates roughly 0.1–0.9 V several times a second once hot — a
+> reading parked mid-range means a lazy or cold sensor, not a perfect mixture. A **downstream** sensor
+> should sit steady around 0.6–0.7 V; when it starts mirroring the upstream swing, the catalyst has
+> stopped storing oxygen. One sample is worth very little: read the shape over several seconds.
+
+`ShortTermFuelTrim` is **null** when the vehicle marks the sensor as not used in the trim calculation.
+That marker (`0xFF`) scales to +99.2%, which would otherwise land on a graph looking like a wildly
+rich correction.
+
+### EGR and EVAP
+
+The two most common causes of a check engine light.
+
+```csharp
+// EGR — commanded alone says only what was asked for; the error says whether it happened
+var commanded = await connection.Execute(StandardCommands.CommandedEgr);
+var error = await connection.Execute(StandardCommands.EgrError);
+
+// EVAP — purge command plus tank pressure distinguishes a real leak from a valve that won't seal
+var purge = await connection.Execute(StandardCommands.CommandedEvaporativePurge);
+var pressure = await connection.Execute(StandardCommands.EvapVaporPressure);   // signed Pa
+```
+
+A P0401 (insufficient EGR flow) with 0% commanded is a different fault from the same code with 40%
+commanded and a large negative error — the latter is the classic carbon-clogged passage, and is
+visible here long before the code sets.
+
+> ⚠️ **Three PIDs are all called some variant of "evap system vapour pressure" and they are not
+> interchangeable.** `0x32` is signed pascals (±8 kPa, fine), `0x54` is signed pascals (±32 kPa,
+> coarse), and `0x53` is *unsigned kilopascals measured against vacuum*, so ~101 kPa is atmospheric
+> rather than zero. Probe with `SupportedPidsCommand` and use whichever the vehicle answers. Never
+> convert between them.
+
+### Torque and Power
+
+Mode 01 reports torque as a percentage of a reference figure, so neither PID means anything alone.
+`ReferenceTorque` is a constant for the engine — read it once and reuse it rather than paying for it
+on every sample:
+
+```csharp
+var reference = await connection.Execute(StandardCommands.ReferenceTorque);     // N·m, read once
+
+// Then per sample
+var percent = await connection.Execute(StandardCommands.ActualEngineTorque);
+var rpm = await connection.Execute(StandardCommands.EngineRpm);
+
+var nm = EnginePower.TorqueNm(percent, reference);
+var kw = EnginePower.Kilowatts(percent, reference, rpm);
+var hp = EnginePower.MetricHorsepower(percent, reference, rpm);
+```
+
+`MetricHorsepower` (PS, 735.5 W) and `MechanicalHorsepower` (hp, 745.7 W) are both offered rather than
+one being called "horsepower": they differ by about 1.4%, which is small enough to look like
+measurement noise and large enough to make two apps disagree about the same car.
+
+Negative values are normal and mean the engine is being driven rather than driving. This is the
+engine's output at the flywheel, before the drivetrain — it is not a chassis dyno and will read higher
+than one.
+
+### Mode 06 — On-Board Test Results
+
+The deepest data OBD-II exposes, and the only mode that answers **"how close is this to failing"**.
+Everything else reports a state: a code is set or it is not, a monitor is complete or it is not. Mode
+06 reports the measurement the monitor actually took and the limits it was judged against.
+
+```csharp
+// Discover what the vehicle supports — there are 224 MIDs and an unsupported one returns NO DATA
+var supported = new List<byte>();
+foreach (var block in MonitorIds.BlockMids)            // 00, 20, 40, 60, 80, A0
+    supported.AddRange(await connection.Execute(new OnBoardTestSupportedMidsCommand(block)));
+
+foreach (var mid in supported)
+{
+    foreach (var test in await connection.Execute(new OnBoardTestCommand(mid)))
+    {
+        Console.WriteLine(
+            $"{test.Monitor ?? $"MID {test.Mid:X2}"} test {test.TestId:X2}: " +
+            $"{test.Value:F2} {test.Unit} (limits {test.Minimum:F2}–{test.Maximum:F2}) " +
+            $"{(test.Passed == true ? "PASS" : "FAIL")} — {test.BandPosition:P0} of band"
+        );
+    }
+}
+```
+
+`BandPosition` is the number this mode exists for. A result that passes tells you nothing about trend;
+a result sitting at 95% of its band, compared against the same reading six months ago, is a component
+you can schedule rather than wait to fail.
+
+Every value carries a **unit-and-scaling identifier** saying how to decode it — the same 16-bit number
+is 0.25 rpm per bit under one identifier and 0.122 mV under another, so decoding without the table
+produces numbers that look plausible and are wrong by orders of magnitude. Identifiers at `0x80` and
+above are the signed forms, and reading one of those as unsigned turns a small negative measurement
+into ~65,535 and a comfortably passing test into a dramatic failure.
+
+When an identifier is outside the standard table, `Value`, `Unit`, `Passed` and `BandPosition` are all
+**null** while `RawValue`, `RawMinimum` and `RawMaximum` remain — the raw comparison is still yours to
+make, but the library will not guess at signedness on your behalf.
+
+MIDs above `0xDF` are manufacturer-defined, so `Monitor` is null for them. Manufacturers also publish
+their own definitions for the standardised ranges (GM's are the best known), which is worth knowing
+when a result carries a name from here but a value that only makes sense against their documentation.
+
+> Mode 06 is defined for CAN (ISO 15765-4) vehicles. Pre-CAN protocols used a different, largely
+> manufacturer-specific format; on such a vehicle expect an `ObdException` naming that as the likely
+> cause rather than wrong numbers.
+
+### ECU Identity and In-Use Performance
+
+```csharp
+// Calibration ID and CVN are a pair — the CVN is computed over the calibration itself, so a reflash
+// that keeps the same ID still changes it
+var ids = await connection.Execute(StandardCommands.CalibrationId);
+var cvns = await connection.Execute(StandardCommands.CalibrationVerificationNumber);
+
+// How often each monitor actually runs against how often it could have
+var ipt = await connection.Execute(InUsePerformanceTrackingCommand.Spark());   // or .Compression()
+foreach (var monitor in ipt.Monitors)
+    Console.WriteLine($"{monitor.Monitor}: {monitor.Ratio:P1}");
+```
+
+A ratio persistently near zero on a car with no fault means the monitor's enabling conditions are
+never met by how that vehicle is driven — short trips, mostly. That is the real explanation behind a
+car that will not reach emissions readiness no matter how long it is driven, which `MonitorStatus` can
+only report as "still incomplete". A **null** ratio is different again: the denominator is zero, so the
+monitor never had the opportunity at all.
 
 ### Custom Commands
 
@@ -508,6 +751,231 @@ var transport = new BleObdTransport(bleManager, new BleObdConfiguration
 });
 ```
 
+## WiFi Transport (TCP)
+
+Works with any ELM327-compatible adapter that exposes a raw TCP socket — OBDLink MX Wi-Fi, Veepeak
+WiFi, Vgate iCar, and the ESP8266/ESP32-based clones.
+
+A WiFi OBD adapter is a TCP-to-UART bridge: it runs its own access point, you join it, and it hands
+you the ELM327's serial stream over a socket. **This is the only transport with no platform story** —
+it is a plain socket, so it behaves identically on iOS, Android, Windows, Linux and macOS. Serial
+cannot be used on iOS or Android at all, and BLE needs a BLE adapter and pairing.
+
+### Registration
+
+```csharp
+// Probes the well-known adapter addresses and the current network's gateway
+services.AddShinyObdWifi();
+
+// Or pin it, skipping detection
+services.AddShinyObdWifi("192.168.0.10", 35000);
+```
+
+### Direct construction
+
+```csharp
+var transport = new WifiObdTransport(new WifiObdConfiguration
+{
+    // Null discovers the adapter; a value here is simply tried first
+    Host = null,
+    Port = 35000,
+
+    // Validates a candidate with ATI rather than trusting the TCP connect
+    AutoDetectEndpoint = true,
+
+    // Send a cheap ATI when idle this long, so the adapter doesn't drop the socket
+    KeepAliveInterval = TimeSpan.FromSeconds(20),
+
+    CommandTimeout = TimeSpan.FromSeconds(10)
+});
+
+var connection = new ObdConnection(transport);
+await connection.Connect();
+```
+
+`ConnectedEndpoint` and `DetectedIdentifier` report what was actually reached, which is worth logging
+when detection is in play.
+
+### Endpoint detection
+
+**A TCP connect proves nothing.** Anything listening on the address accepts — your router on
+192.168.0.1 will happily complete a connect and then never say a word. So detection validates each
+candidate with an ATI and only accepts a reply terminated by the `>` prompt, which nothing else on a
+home network produces.
+
+Candidates are tried in this order:
+
+| Order | Source | Why |
+|---|---|---|
+| 1 | `Host`, when set | A configured address costs nothing when it is right |
+| 2 | Default gateway of each up interface | These adapters run the AP you joined, so they *are* the gateway |
+| 3 | `EndpointCandidates` | `192.168.0.10:35000` (OBDLink/ScanTool and most clones), `192.168.4.1:35000` (stock ESP8266/ESP32 SoftAP), `192.168.1.5`, `10.0.0.10`, and the two port-23 variants |
+
+`WifiObdDeviceScanner` probes the same list and implements `IObdDeviceScanner`, so a "pick your
+adapter" UI works over WiFi, serial and BLE without caring which is which.
+`ObdDiscoveredDevice.NativeDevice` is a `WifiObdEndpoint`.
+
+```csharp
+var scanner = new WifiObdDeviceScanner();
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+await scanner.Scan(device => Console.WriteLine($"{device.Name} at {device.Id}"), cts.Token);
+```
+
+Each probe closes its socket before moving on, and that matters: **most of these adapters accept
+exactly one TCP client at a time**, so a scanner that lingered would lock out the transport about to
+connect for real. For the same reason, don't register two consumers of one adapter.
+
+### Joining the adapter's network is the app's job
+
+The transport connects a socket; it cannot join a WiFi network for you, and the OS will not
+necessarily route through one that has no internet.
+
+- **Android** keeps the default route on cellular, so the socket connects to nothing. Pin traffic to
+  the adapter's network with `ConnectivityManager.BindProcessToNetwork(network)`, or bind the socket
+  itself via `WifiObdConfiguration.ConfigureSocket`.
+- **iOS** needs `NSLocalNetworkUsageDescription` in `Info.plist` and the user's consent. A denial is
+  silent and looks exactly like a dead adapter.
+
+```csharp
+services.AddShinyObdWifi(config => config.ConfigureSocket = socket =>
+{
+    // e.g. bind to a specific Android.Net.Network, set buffer sizes, enable TCP keep-alives
+    socket.ReceiveBufferSize = 8192;
+});
+```
+
+### No auto-reconnect, on purpose
+
+A dropped socket loses the ELM327's session state — `ATE0`, `ATS1`, the negotiated protocol — because
+that state lives in the adapter, not the socket. Silently redialling would hand you a live connection
+with echo back on, whose replies parse as garbage rather than failing outright. A lost link surfaces
+as `ObdException`; recover by calling `ObdConnection.Connect()` again, which re-initialises the
+adapter.
+
+`KeepAliveInterval` is what stops the idle drop happening in the first place — clone firmware
+commonly closes a socket idle for 30–60 seconds. A polling loop never notices; an app that connects
+and then waits for the user does. The keep-alive sends `ATI`, which the adapter answers itself and
+never puts on the vehicle bus, and it skips itself whenever a real command is in flight.
+
+> **Leave `NoDelay` on.** An OBD exchange is a tiny write followed by a tiny reply, which is exactly
+> the traffic Nagle's algorithm delays. With it enabled you pay tens of milliseconds on every PID
+> read — the difference between a usable live-data gauge and a sluggish one.
+
+## Serial Transport (USB / UART)
+
+Works with any ELM327-compatible adapter that presents as a serial port — OBDLink SX/EX, ELM327
+clones on CH340/FTDI/CP210x, and adapters wired directly to a board's TX/RX pins.
+
+Built on `System.IO.Ports`, which is supported on **Windows, Linux, macOS and Mac Catalyst**.
+
+For a permanently installed device, prefer this over BLE: there is no pairing, no scan, no reconnect
+storm after a power cycle, and a wired adapter cannot wander out of range.
+
+### Platform support
+
+| Platform | Supported | Notes |
+|---|---|---|
+| Windows, Linux, macOS | Yes | |
+| Mac Catalyst | Yes | Marked `[SupportedOSPlatform]` on the assembly |
+| **Android** | **No** | Builds and loads — but see below |
+| iOS, tvOS, Browser/WASM | No | `[UnsupportedOSPlatform]`; throws `PlatformNotSupportedException` |
+
+**Android deserves a specific warning.** `System.IO.Ports` is *not* marked unsupported there and its
+native library genuinely ships for the `android-*` RIDs, so a `net10.0-android` project can reference
+this package and compile cleanly. It then fails at runtime with `UnauthorizedAccessException` rather
+than `PlatformNotSupportedException`, which looks like a fixable permissions problem and is not: the
+kernel does create `/dev/ttyUSB0` for a host-mode adapter, but it is owned `root:usb` and an app's UID
+is not in that group, so only a rooted device can open it.
+
+Android's supported route for a USB adapter is the **USB Host API** (`UsbManager` → runtime
+permission intent → `openDevice()` → bulk transfers), with the FTDI/CH340/CP210x/CDC-ACM protocol
+implemented in user space — a different `IObdTransport`, not a variation on this one. On Android, use
+`Shiny.Obd.Ble`.
+
+### Registration
+
+```csharp
+services.AddShinyObdSerial(config =>
+{
+    config.PortName = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0";
+    config.BaudRate = 115200;
+});
+
+// or, letting it discover the adapter
+services.AddShinyObdSerial(config => config.PortNameFilter = "OBDLink");
+```
+
+### Direct construction
+
+```csharp
+var transport = new SerialObdTransport(new SerialObdConfiguration
+{
+    // Null discovers a port; see the by-id note below
+    PortName = null,
+    PortNameFilter = "OBDLink",
+
+    // Probes 38400 / 115200 / 9600 / 500000 rather than trusting BaudRate
+    AutoDetectBaudRate = true,
+
+    CommandTimeout = TimeSpan.FromSeconds(10)
+});
+
+var connection = new ObdConnection(transport);
+await connection.Connect();
+```
+
+`ConnectedPortName` and `ConnectedBaudRate` report what was actually opened, which is worth logging
+when discovery is in play.
+
+### Discovery
+
+`SerialObdDeviceScanner` implements `IObdDeviceScanner`, so a "pick your adapter" UI works over
+serial and BLE without caring which is which. `ObdDiscoveredDevice.NativeDevice` is a
+`SerialPortInfo`.
+
+```csharp
+var scanner = new SerialObdDeviceScanner();
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+await scanner.Scan(device => Console.WriteLine(device.Name), cts.Token);
+```
+
+Discovery is platform-aware rather than a raw `SerialPort.GetPortNames()`:
+
+| Platform | Enumerated | Notes |
+|---|---|---|
+| Linux | `/dev/serial/by-id/*`, then `ttyUSB*` / `ttyACM*` / `ttyAMA*` / `serial*` | `by-id` names come from the USB descriptor, so they carry the vendor and serial number **and survive a reboot** |
+| macOS | `/dev/cu.*` | Only the `cu.` nodes — opening the matching `tty.` node blocks until the device asserts carrier detect, which a USB-serial bridge never does |
+| Windows | `SerialPort.GetPortNames()` | Backed by the SERIALCOMM device map |
+
+Ports likely to be adapters are returned first, matched against known brands (OBDLink, Veepeak,
+Vgate, ScanTool) and the USB-serial bridge chips they are built on (FTDI, CH340, CP210x, PL2303).
+The bridges are included deliberately: a genuine OBDLink SX presents as a stock FTDI device with no
+OBD branding in its descriptor.
+
+> **Prefer a `by-id` path over `/dev/ttyUSB0` on Linux.** The numbered names are assigned in USB
+> enumeration order, so a second USB serial device — a GNSS puck, a cellular modem — can take
+> `ttyUSB0` out from under your adapter across a reboot.
+
+### Linux permissions
+
+Opening a serial port needs the `dialout` group:
+
+```bash
+sudo usermod -aG dialout $USER   # then log out and back in
+```
+
+ModemManager will also probe any USB-serial device it sees and hold it open for several seconds
+sending AT commands, which makes connects fail intermittently. Tell it to leave the bridges alone:
+
+```
+# /etc/udev/rules.d/77-no-modemmanager-obd.rules
+ATTRS{idVendor}=="0403", ENV{ID_MM_DEVICE_IGNORE}="1"   # FTDI
+ATTRS{idVendor}=="1a86", ENV{ID_MM_DEVICE_IGNORE}="1"   # CH340
+ATTRS{idVendor}=="10c4", ENV{ID_MM_DEVICE_IGNORE}="1"   # CP210x
+```
+
 ## Raw Commands
 
 Send arbitrary AT or OBD commands:
@@ -566,16 +1034,17 @@ The distinction matters most to a polling loop. If a transport reported its own 
 
 ## Implementing a Custom Transport
 
-Implement `IObdTransport` to add WiFi, USB, or any other communication channel:
+BLE, WiFi and serial ship in the box. Implement `IObdTransport` for anything else — an Android USB
+Host API transport, a J2534 pass-thru box, a replay harness over a recorded session:
 
 ```csharp
-public class WifiObdTransport : IObdTransport
+public class UsbHostObdTransport : IObdTransport
 {
     public bool IsConnected { get; private set; }
 
     public async Task Connect(CancellationToken ct = default)
     {
-        // Connect to ELM327 WiFi adapter (typically 192.168.0.10:35000)
+        // Open the channel — UsbManager.OpenDevice, a socket, a serial port…
     }
 
     public Task Disconnect() { /* ... */ }
@@ -593,3 +1062,75 @@ The `Send` method must:
 1. Write the command string to the adapter
 2. Read the response until the `>` prompt character
 3. Return the response text (without the `>` prompt)
+
+## Adapter Emulator (Sample)
+
+Testing an OBD app usually means sitting in a car with the engine running. The sample app in
+[`samples/Sample.Maui`](samples/Sample.Maui) can also *be* the adapter, so you can do it at a desk.
+
+It runs both roles at once — the **Scan** tab is a client that finds and reads a real adapter, and the
+**Adapter**, **Drive**, **Values** and **Faults** tabs turn the device into an ELM327-compatible OBD-II
+adapter that other apps connect to. Point one device at another, or point any third-party OBD app at it.
+
+```bash
+dotnet build samples/Sample.Maui/Sample.Maui.csproj -f net10.0-android   # or -f net10.0-ios
+```
+
+Hosting starts the moment the app launches — there is no button to press first — and the Adapter tab
+shows what is being advertised, who is connected, and every command as it arrives.
+
+**Two transports, one vehicle.** A GATT service on `FFF0`/`FFF1`/`FFF2` advertised as `VEEPEAK` (the
+`BleObdConfiguration` defaults, so the Scan tab on a second device finds it with no configuration),
+and a TCP server on port 35000 (the first endpoint `WifiObdConfiguration` probes). A value you change
+is answered identically over both.
+
+**Discoverable over the network.** Real WiFi adapters do not announce themselves, which is why
+`WifiObdTransport` walks a list of well-known addresses. The sample publishes itself over mDNS with
+[Shiny.Net.Discovery](https://www.nuget.org/packages/Shiny.Net.Discovery), so a client can browse
+`_obd._tcp` and get the endpoint back directly:
+
+```csharp
+await foreach (var result in mdns.Browse("_obd._tcp", ct))
+{
+    if (result.Status != MdnsBrowseStatus.Found)
+        continue;
+
+    var endpoint = result.Service.GetEndPoint();
+    var connection = new ObdConnection(
+        new WifiObdTransport(endpoint!.Address.ToString(), endpoint.Port)
+    );
+    await connection.Connect();
+}
+```
+
+**It behaves like the real thing.** The whole `Elm327AdapterProfile` init sequence (`ATZ`, `ATE`,
+`ATL`, `ATS`, `ATH`, `ATSP`) plus `ATI`, `AT@1`, `ATRV`, `ATDP` and `ATDPN`; echo on at power-up, as a
+real adapter does; responses chunked into 20-byte BLE notifications; and multi-frame replies carrying
+the byte-count line and numbered frames, so a VIN read exercises the real path rather than pretending
+it away. Modes 01, 02, 03, 04, 06, 07, 09 and 0A are all answered.
+
+**Every command is settable.** The Values tab lists all 90-odd commands, searchable by name or request
+(`010C`, `0902`). Each has a supported switch — turn a PID off and it answers `NO DATA` *and* drops out
+of the supported-PID bitmask, so a client walking `0100`/`0120`/`0140` discovers exactly the set you
+left on — an editor in engineering units, a raw hex override for composite PIDs or deliberately
+malformed replies, and a readback showing the bytes going on the wire next to what a `Shiny.Obd` client
+decodes from them. That readback runs the emulator's own bytes back through the real command object,
+so an encoder that disagrees with the library's parser shows up there rather than as a wrong number
+somewhere else.
+
+**Or let it drive itself.** Hand-set values are a flat line, which will not catch a client that
+mishandles a gear change or an hour of continuous polling. The Drive tab plays a looping scenario into
+the emulator at five updates a second — **Warm idle**, **City driving** (lights, a school zone, a
+roundabout, one emergency stop), **Busy highway** (merge, overtakes, a truck cutting in, a stop-and-go
+jam) or **Mixed commute** (city, highway, city — about half an hour a lap). One model of a car drives
+every parameter, so RPM matches the gear the speed implies, mass air flow matches the load, fuel rate
+matches the air flow, and the odometer, fuel level and trip counters integrate across laps. Gear
+changes, deceleration fuel cut and harsh braking are all in there. Everything the scenario does not
+model — the supported switches, the fault memory, the adapter identity — stays where you set it, so you
+can add a trouble code mid-drive.
+
+**Faults and identity too.** MIL and stored-code count (which drive PIDs 01 and 41), readiness monitors
+complete or still running, compression vs spark ignition, freeze frame stored or not, ignition off
+(every request answers `UNABLE TO CONNECT`), trouble codes for modes 03/07/0A, and the `ATI` response —
+put `STN` in it and `ObdConnection` picks the OBDLink profile instead of the ELM327 one, which is how
+you test that branch without owning an OBDLink.

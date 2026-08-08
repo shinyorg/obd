@@ -3,6 +3,8 @@
         "path": "Obd.slnx",
         "projects": [
             "src\\Shiny.Obd.Ble\\Shiny.Obd.Ble.csproj",
+            "src\\Shiny.Obd.Serial\\Shiny.Obd.Serial.csproj",
+            "src\\Shiny.Obd.Wifi\\Shiny.Obd.Wifi.csproj",
             "src\\Shiny.Obd\\Shiny.Obd.csproj",
             "tests\\Shiny.Obd.Tests\\Shiny.Obd.Tests.csproj"
         ]

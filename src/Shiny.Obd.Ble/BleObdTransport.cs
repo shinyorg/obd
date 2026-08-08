@@ -12,7 +12,12 @@ namespace Shiny.Obd.Ble;
 /// BLE transport for OBD communication using Shiny.BluetoothLE.
 /// Works with ELM327-compatible BLE adapters.
 /// </summary>
-public class BleObdTransport : IObdTransport
+/// <remarks>
+/// Also implements <see cref="IDisposable"/> so a DI container can tear it down on its synchronous
+/// disposal path — see the note on <see cref="ObdConnection"/>. Everything this closes is synchronous
+/// anyway, so the two are equivalent.
+/// </remarks>
+public class BleObdTransport : IObdTransport, IDisposable
 {
     readonly IBleManager? bleManager;
     readonly BleObdConfiguration config;
@@ -150,6 +155,13 @@ public class BleObdTransport : IObdTransport
             this.EndExchange();
             this.sendLock.Release();
         }
+    }
+
+    public void Dispose()
+    {
+        _ = this.Disconnect();
+        this.peripheral = null;
+        GC.SuppressFinalize(this);
     }
 
     public ValueTask DisposeAsync()

@@ -6,8 +6,31 @@
                   x:Class="Sample.Maui.AppShell"
                   Title="OBD Sample">
 
-    <ShellContent Title="Scan"
-                  ContentTemplate="{DataTemplate local:ScanPage}"
-                  Route="scan" />
+    <TabBar>
+
+        <!-- Client role: find and read a real adapter -->
+        <ShellContent Title="Scan"
+                      ContentTemplate="{DataTemplate local:ScanPage}"
+                      Route="scan" />
+
+        <!-- Adapter role: be the adapter, over BLE and TCP at once -->
+        <ShellContent Title="Adapter"
+                      ContentTemplate="{DataTemplate local:HostPage}"
+                      Route="host" />
+
+        <!-- Play a drive into the emulator so the values move on their own -->
+        <ShellContent Title="Drive"
+                      ContentTemplate="{DataTemplate local:DrivePage}"
+                      Route="drive" />
+
+        <ShellContent Title="Values"
+                      ContentTemplate="{DataTemplate local:ParametersPage}"
+                      Route="values" />
+
+        <ShellContent Title="Faults"
+                      ContentTemplate="{DataTemplate local:FaultsPage}"
+                      Route="faults" />
+
+    </TabBar>
 
 </shiny:ShinyShell>

@@ -3,13 +3,18 @@
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     </PropertyGroup>
     <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5"/>
-        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.5"/>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5"/>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.5"/>
+        <!-- Shiny 5.4.0 depends on Microsoft.Extensions.* 10.0.7, so 10.0.5 here reads as a downgrade.
+             Aligned on 10.0.10 to match System.IO.Ports below. -->
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10"/>
+        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10"/>
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10"/>
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.10"/>
         <PackageVersion Include="Nerdbank.GitVersioning" Version="3.10.91"/>
-        <PackageVersion Include="Shiny.BluetoothLE" Version="5.2.5"/>
-        <PackageVersion Include="Shiny.Hosting.Maui" Version="5.2.5"/>
+        <PackageVersion Include="System.IO.Ports" Version="10.0.10"/>
+        <PackageVersion Include="Shiny.BluetoothLE" Version="5.4.0"/>
+        <PackageVersion Include="Shiny.BluetoothLE.Hosting" Version="5.4.0"/>
+        <PackageVersion Include="Shiny.Hosting.Maui" Version="5.4.0"/>
+        <PackageVersion Include="Shiny.Net.Discovery" Version="5.4.0"/>
         <PackageVersion Include="Shiny.Maui.Shell" Version="6.3.2"/>
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2"/>
         <PackageVersion Include="coverlet.collector" Version="10.0.1"/>

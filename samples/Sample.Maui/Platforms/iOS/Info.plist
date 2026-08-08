@@ -31,8 +31,16 @@
 	<key>UILaunchStoryboardName</key>
 	<string>MauiSplash</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>This app uses Bluetooth to connect to your OBD-II vehicle adapter.</string>
+	<string>This app uses Bluetooth to connect to your OBD-II vehicle adapter, and to act as one for testing.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>This app uses Bluetooth to connect to your OBD-II vehicle adapter.</string>
+	<string>This app uses Bluetooth to advertise itself as an OBD-II adapter so other apps can connect to it.</string>
+	<!-- The TCP/mDNS side of the emulator. Without the Bonjour service listed here iOS 14+ blocks the
+	     advertisement outright rather than just prompting. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app publishes a simulated WiFi OBD-II adapter on your local network so other apps can find and connect to it.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_obd._tcp</string>
+	</array>
 </dict>
 </plist>

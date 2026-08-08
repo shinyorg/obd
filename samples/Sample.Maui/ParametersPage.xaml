@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Sample.Maui"
+    xmlns:emu="clr-namespace:Sample.Maui.Emulator"
+    x:Class="Sample.Maui.ParametersPage"
+    x:DataType="local:ParametersViewModel"
+    Title="Vehicle Values">
+
+    <Grid RowDefinitions="Auto,*" Padding="16" RowSpacing="8">
+
+        <VerticalStackLayout Spacing="6">
+            <SearchBar Placeholder="Filter by name or request (eg 010C)" Text="{Binding Search}" />
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Label Text="{Binding Summary}" FontSize="12" TextColor="Gray" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="All" Command="{Binding SupportAllCommand}" FontSize="12" Padding="12,4" HeightRequest="32" />
+                <Button Grid.Column="2" Text="None" Command="{Binding SupportNoneCommand}" FontSize="12" Padding="12,4" HeightRequest="32" />
+            </Grid>
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Parameters}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="emu:ObdParameter">
+                    <Border Margin="0,4" Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                        <VerticalStackLayout Spacing="6">
+
+                            <!-- Name, request and the supported switch -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding Title}" FontSize="14" FontAttributes="Bold" />
+                                    <Label Text="{Binding Request, StringFormat='request {0}'}" FontSize="11" TextColor="Gray" FontFamily="Monospace" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IsSupported}" VerticalOptions="Center" />
+                            </Grid>
+
+                            <!-- Numeric editor -->
+                            <Grid ColumnDefinitions="*,110" ColumnSpacing="8" IsVisible="{Binding IsNumber}">
+                                <Slider
+                                    Minimum="{Binding Minimum}"
+                                    Maximum="{Binding Maximum}"
+                                    Value="{Binding Number}"
+                                    VerticalOptions="Center" />
+                                <Entry
+                                    Grid.Column="1"
+                                    Text="{Binding Number}"
+                                    Keyboard="Numeric"
+                                    HorizontalTextAlignment="End" />
+                            </Grid>
+
+                            <Entry Text="{Binding Text}" IsVisible="{Binding IsText}" Placeholder="Text value" />
+
+                            <Entry Text="{Binding Hex}" IsVisible="{Binding IsHex}" Placeholder="Hex payload" FontFamily="Monospace" />
+
+                            <Entry Text="{Binding RawOverride}" Placeholder="Raw override (hex, optional)" FontFamily="Monospace" FontSize="12" />
+
+                            <Label Text="{Binding Note}" IsVisible="{Binding HasNote}" FontSize="11" TextColor="Gray" />
+
+                            <!-- What the emulator will put on the wire, and what a Shiny.Obd client decodes from it -->
+                            <Label Text="{Binding ResponseHex, StringFormat='wire: {0}'}" FontSize="11" FontFamily="Monospace" TextColor="Gray" />
+                            <Label Text="{Binding Readback, StringFormat='client reads: {0}'}" FontSize="12" FontFamily="Monospace" />
+
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </Grid>
+</ContentPage>
