@@ -1,7 +1,7 @@
 using System.Globalization;
 using Shiny.Obd;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// How a parameter's value is edited in the UI - which in turn decides how it is encoded onto the wire.
@@ -28,7 +28,7 @@ public enum ObdValueKind
 /// <remarks>
 /// <see cref="Readback"/> decodes the emulator's own answer using the real <c>Shiny.Obd</c> command
 /// object. That is deliberate - it means an encoder that disagrees with the library's parser shows up
-/// in this app rather than as a wrong number in whatever app you are testing against it.
+/// here rather than as a wrong number in whatever app you are testing against it.
 /// </remarks>
 public partial class ObdParameter : ObservableObject
 {
@@ -131,7 +131,7 @@ public partial class ObdParameter : ObservableObject
             catch (Exception ex)
             {
                 // A parameter that cannot be decoded is worth seeing rather than hiding: it is either a
-                // deliberate malformed-reply test or a bug in this app's encoder.
+                // deliberate malformed-reply test or a bug in this encoder.
                 return $"! {ex.Message}";
             }
         }

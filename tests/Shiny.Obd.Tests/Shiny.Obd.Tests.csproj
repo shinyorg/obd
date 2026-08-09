@@ -24,6 +24,7 @@
         <ProjectReference Include="..\..\src\Shiny.Obd.Ble\Shiny.Obd.Ble.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Obd.Serial\Shiny.Obd.Serial.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Obd.Wifi\Shiny.Obd.Wifi.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Obd.Emulator\Shiny.Obd.Emulator.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-using Sample.Maui.Emulator;
+using Shiny.Obd.Emulator;
 using Shiny;
 
 namespace Sample.Maui;

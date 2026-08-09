@@ -1,4 +1,4 @@
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// Plays a <see cref="DrivingScenario"/> into the emulator by writing the live mode 01 parameters five
@@ -17,23 +17,18 @@ namespace Sample.Maui.Emulator;
 /// a busy device as on an idle one, at the cost of running slightly behind the clock under load.
 /// </para>
 /// </remarks>
-public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableObject
+public partial class DrivingScenarioPlayer(ObdEmulatorState state, IObdEmulatorDispatcher dispatcher) : ObservableObject
 {
     const double TickSeconds = 0.2;
 
-    // A 1500 kg, 2.0 L, ~105 kW car with a six-speed box. Nothing here needs to match a real vehicle;
-    // it needs to make every derived PID move together in a way a client will believe.
-    const double MassKg = 1500;
-    const double DisplacementLitres = 2.0;
-    const double PeakPowerWatts = 105_000;
-    const double PeakTractiveForceN = 6000;
-    const double IdleRpm = 780;
-    const double TankLitres = 55;
-
-    /// <summary>Engine RPM per km/h in each gear. Sixth gear puts 100 km/h at about 1900 rpm.</summary>
-    static readonly double[] GearRatios = [95, 55, 38, 29, 23, 19];
-
     CancellationTokenSource? cancel;
+
+    /// <summary>
+    /// Mass, displacement, power, gearing and fuel all come from <see cref="ObdEmulatorState.Vehicle"/>,
+    /// so a drive in the Cummins pickup does not produce the same numbers as one in the Civic. Read
+    /// fresh each tick - switching vehicle mid-drive takes effect on the next one.
+    /// </summary>
+    EmulatedVehicle Car => state.Vehicle;
 
     // ---- Vehicle model ----------------------------------------------------------------------------
     double speed;             // m/s
@@ -61,7 +56,7 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
 
     [ObservableProperty] bool isRunning;
 
-    /// <summary>The step currently playing, so the numbers on screen have a caption.</summary>
+    /// <summary>The step currently playing, so the live numbers have a caption.</summary>
     [ObservableProperty] string stepLabel = "Not driving";
 
     [ObservableProperty] string elapsedLabel = "0:00 / 0:00";
@@ -70,7 +65,7 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
     [ObservableProperty] int laps;
 
     // Read-outs. These mirror what was just written to the parameters - the UI binds here rather than
-    // to the parameter list so a drive does not repaint the whole Values tab five times a second.
+    // to the parameter list so a drive does not repaint every bound parameter five times a second.
     [ObservableProperty] double speedKph;
     [ObservableProperty] double rpm;
     [ObservableProperty] double throttlePercent;
@@ -137,10 +132,7 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
             {
                 // Parameter writes raise PropertyChanged straight into bindings, so they belong on the
                 // UI thread. The model is cheap enough that running all of it there costs nothing.
-                if (MainThread.IsMainThread)
-                    this.Advance();
-                else
-                    MainThread.BeginInvokeOnMainThread(this.Advance);
+                dispatcher.Invoke(this.Advance);
             }
         }
         catch (OperationCanceledException)
@@ -149,7 +141,7 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
         }
     }
 
-    /// <summary>Takes the current parameter values as the starting point, so a drive continues from what is on screen.</summary>
+    /// <summary>Takes the current parameter values as the starting point, so a drive continues from wherever the vehicle was left.</summary>
     void Seed()
     {
         this.speed = 0;
@@ -249,16 +241,19 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
     /// <summary>What the engine can pull at this speed - a car accelerates far harder at 20 km/h than at 120.</summary>
     double AvailableAcceleration()
     {
-        var force = Math.Min(PeakTractiveForceN, PeakPowerWatts / Math.Max(this.speed, 3.0));
-        return (force - this.RoadLoadNewtons()) / MassKg;
+        var force = Math.Min(this.Car.PeakTractiveForceN, this.Car.PeakPowerWatts / Math.Max(this.speed, 3.0));
+        return (force - this.RoadLoadNewtons()) / this.Car.MassKg;
     }
 
     double RoadLoadNewtons() => 220 + (0.42 * this.speed * this.speed);
 
     void SelectGear()
     {
+        var ratios = this.Car.GearRatios;
         var kph = this.speed * 3.6;
-        if (kph < 4)
+
+        // A single-speed EV is always "in gear" - there is nothing to select and nothing to slip.
+        if (kph < 4 && ratios.Count > 1)
         {
             this.gear = -1;
             return;
@@ -267,14 +262,20 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
         if (this.gear < 0)
             this.gear = 0;
 
-        // Shift points move with load: a gentle pull-away shifts just over 2400 rpm, a hard one hangs on
-        // to nearly 5000. That sawtooth in the RPM trace is the most recognisable thing about real data.
-        var upshift = Math.Clamp(2400 + (this.ThrottlePercent * 24), 2400, 4900);
+        // Shift points move with load: a gentle pull-away shifts near the floor, a hard one hangs on to
+        // the ceiling. That sawtooth in the RPM trace is the most recognisable thing about real data -
+        // and a diesel's floor and ceiling are thousands of rpm below a petrol engine's.
+        var band = this.Car.ShiftCeilingRpm - this.Car.ShiftFloorRpm;
+        var upshift = Math.Clamp(
+            this.Car.ShiftFloorRpm + (this.ThrottlePercent / 100 * band),
+            this.Car.ShiftFloorRpm,
+            this.Car.ShiftCeilingRpm
+        );
 
-        while (this.gear < GearRatios.Length - 1 && GearRatios[this.gear] * kph > upshift)
+        while (this.gear < ratios.Count - 1 && ratios[this.gear] * kph > upshift)
             this.gear++;
 
-        while (this.gear > 0 && GearRatios[this.gear] * kph < 1250)
+        while (this.gear > 0 && ratios[this.gear] * kph < this.Car.DownshiftRpm)
             this.gear--;
     }
 
@@ -282,19 +283,24 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
 
     void Apply()
     {
+        var car = this.Car;
         var kph = this.speed * 3.6;
         var moving = kph >= 4;
-        var engineRpm = moving ? Math.Max(IdleRpm, GearRatios[Math.Max(this.gear, 0)] * kph) : IdleRpm + (25 * Math.Sin(this.clock * 1.7));
+        var ratio = car.GearRatios[Math.Clamp(this.gear, 0, car.GearRatios.Count - 1)];
+        var engineRpm = moving
+            ? Math.Max(car.IdleRpm, ratio * kph)
+            : car.IdleRpm + (car.IsElectric ? 0 : 25 * Math.Sin(this.clock * 1.7));
 
         // Deceleration with a gear engaged closes the injectors outright. It is the state that makes O2,
-        // trim, load and fuel rate all move at once, so it is worth modelling properly.
-        var fuelCut = this.acceleration < -0.5 && moving && engineRpm > 1300;
+        // trim, load and fuel rate all move at once, so it is worth modelling properly. An EV has no
+        // injectors to close - it regenerates instead, and none of the PIDs below exist on it anyway.
+        var fuelCut = !car.IsElectric && this.acceleration < -0.5 && moving && engineRpm > 1300;
 
         // Throttle from the force being asked for as a fraction of what is available at this speed.
         // Power alone would under-read a hard launch badly - at 20 km/h a car is traction limited, not
         // power limited. Standing still the pedal is simply up, whatever the road load says.
-        var tractive = (MassKg * this.acceleration) + this.RoadLoadNewtons();
-        var capacity = Math.Min(PeakTractiveForceN, PeakPowerWatts / Math.Max(this.speed, 3.0));
+        var tractive = (car.MassKg * this.acceleration) + this.RoadLoadNewtons();
+        var capacity = Math.Min(car.PeakTractiveForceN, car.PeakPowerWatts / Math.Max(this.speed, 3.0));
         var idling = !moving && this.acceleration <= 0.05;
         var throttle = fuelCut || idling || tractive <= 0
             ? 0
@@ -307,12 +313,15 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
                 : 16 + (2 * Math.Sin(this.clock * 0.9));
 
         // Air mass from the engine's own displacement rather than a lookup: half a rev per intake stroke,
-        // volumetric efficiency tracking load, air at about 1.18 g/L.
-        var maf = fuelCut ? 0.4 : DisplacementLitres / 2 * (engineRpm / 60) * (load / 100 * 0.95) * 1.18;
+        // volumetric efficiency tracking load, air at about 1.18 g/L. A 6.7 L diesel therefore breathes
+        // three times what a 2.0 L car does at the same revs, with no table to say so.
+        var maf = car.IsElectric
+            ? 0
+            : fuelCut ? 0.4 : car.DisplacementLitres / 2 * (engineRpm / 60) * (load / 100 * 0.95) * 1.18;
 
-        // Stoichiometric petrol, 745 g/L: 12 g/s of air is about 3.9 L/h, which is roughly what 100 km/h
-        // costs a car this size.
-        var fuel = maf * 3600 / (14.7 * 745);
+        // Air mass over the stoichiometric ratio gives fuel mass; density turns that into litres. Petrol
+        // is 14.7 and 745 g/L, diesel 14.5 and 832 - which is most of why the pickup drinks.
+        var fuel = maf * 3600 / (car.AirFuelRatio * car.FuelDensityGramsPerLitre);
 
         this.Thermals(load, moving);
         this.Trip(fuel);
@@ -362,7 +371,7 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
         this.MassAirFlow = maf;
         this.FuelRate = fuel;
         this.CoolantTemperature = this.coolantC;
-        this.GearLabel = this.gear < 0 ? "N" : (this.gear + 1).ToString();
+        this.GearLabel = car.GearRatios.Count == 1 ? "D" : this.gear < 0 ? "N" : (this.gear + 1).ToString();
     }
 
     void Thermals(double load, bool moving)
@@ -391,7 +400,10 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
         this.clearedKm += km;
         this.runtimeSeconds += TickSeconds;
         this.clearedMinutes += TickSeconds / 60;
-        this.fuelPercent = Math.Max(0, this.fuelPercent - (fuelLitresPerHour * TickSeconds / 3600 / TankLitres * 100));
+
+        // A tank of zero litres is an EV, which has no fuel level PID to fall.
+        if (this.Car.TankLitres > 0)
+            this.fuelPercent = Math.Max(0, this.fuelPercent - (fuelLitresPerHour * TickSeconds / 3600 / this.Car.TankLitres * 100));
 
         // Only counted while the lamp is on - which is exactly what a workshop reads these two for.
         if (state.MilOn)
@@ -413,9 +425,14 @@ public partial class DrivingScenarioPlayer(ObdEmulatorState state) : ObservableO
 
     double Read(byte pid, double fallback) => state.Find(0x01, pid)?.Number ?? fallback;
 
+    /// <summary>
+    /// Writes a live value, unless the vehicle does not have that PID. Leaving an unsupported
+    /// parameter alone keeps the vehicle honest: an EV showing a moving mass air flow reading it
+    /// will never answer is worse than showing nothing.
+    /// </summary>
     void Set(byte pid, double value)
     {
-        if (state.Find(0x01, pid) is { } parameter)
+        if (state.Find(0x01, pid) is { IsSupported: true } parameter)
             parameter.Number = value;
     }
 }

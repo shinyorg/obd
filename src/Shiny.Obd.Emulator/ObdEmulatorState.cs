@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using Shiny.Obd.Commands;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// Everything the simulated vehicle knows about itself: which PIDs it answers, what each one reads,
@@ -19,18 +19,23 @@ public partial class ObdEmulatorState : ObservableObject
     {
         this.Parameters = ObdParameterCatalog.Build(this);
         this.lookup = this.Parameters.ToDictionary(Key);
-
-        foreach (var code in new[] { "P0301", "P0420" })
-            this.StoredDtcs.Add(code);
-
-        this.PendingDtcs.Add("P0171");
+        this.ApplyVehicle();
     }
 
     public List<ObdParameter> Parameters { get; }
 
+    /// <summary>The vehicles this emulator can be. A concrete list rather than the catalog's read-only view - a Picker binds to IList.</summary>
+    public List<EmulatedVehicle> Vehicles { get; } = [.. VehicleCatalog.All];
+
     public ObservableCollection<string> StoredDtcs { get; } = [];
     public ObservableCollection<string> PendingDtcs { get; } = [];
     public ObservableCollection<string> PermanentDtcs { get; } = [];
+
+    /// <summary>
+    /// Which vehicle is on the other end of the adapter. Setting it rewrites the identity PIDs, the
+    /// supported-PID masks and the fault memory to match - see <see cref="ApplyVehicle"/>.
+    /// </summary>
+    [ObservableProperty] EmulatedVehicle vehicle = VehicleCatalog.Default;
 
     /// <summary>What the adapter answers to ATI and AT@1. Say "STN" here to exercise the ObdLink profile.</summary>
     [ObservableProperty] string adapterIdentifier = "ELM327 v1.5";
@@ -57,6 +62,75 @@ public partial class ObdEmulatorState : ObservableObject
 
     public ObdParameter? Find(byte mode, byte pid)
         => this.lookup.GetValueOrDefault((mode << 8) | pid);
+
+    /// <summary>
+    /// Rewrites everything that has to agree with <see cref="Vehicle"/>: the identity PIDs, which
+    /// PIDs are answered at all, the readiness monitor set, and the fault memory.
+    /// </summary>
+    /// <remarks>
+    /// This overwrites values and fault codes you have set by hand, which is the intended behaviour -
+    /// picking a vehicle is picking a whole car, not a VIN. The live mode 01 values a drive writes
+    /// are left alone apart from idle speed, so switching vehicles mid-drive does not jolt them.
+    /// </remarks>
+    public void ApplyVehicle()
+    {
+        var vehicle = this.Vehicle;
+
+        // Mode 09 - who the vehicle says it is.
+        this.SetText(0x09, 0x02, vehicle.Vin);
+        this.SetText(0x09, 0x04, vehicle.CalibrationId);
+        this.SetText(0x09, 0x0A, vehicle.EcuName);
+
+        // Mode 01 - what it says it burns, and what it runs on.
+        this.SetNumber(0x01, 0x1C, vehicle.ObdStandard);
+        this.SetNumber(0x01, 0x51, vehicle.FuelTypeCode);
+        this.SetNumber(0x01, 0x52, vehicle.EthanolPercent);
+        this.SetNumber(0x01, 0x5B, vehicle.HybridBatteryPercent);
+        this.SetNumber(0x01, 0x0C, vehicle.IdleRpm);
+
+        // A PID the vehicle does not have has to disappear from the supported masks as well as answer
+        // NO DATA - a client walks the masks and never asks for what they do not advertise.
+        foreach (var parameter in this.Parameters)
+        {
+            parameter.IsSupported = parameter.Mode switch
+            {
+                0x01 => !vehicle.UnsupportedPids.Contains(parameter.Pid),
+                0x09 => vehicle.ReportsVehicleInformation,
+                _ => true
+            };
+        }
+
+        this.CompressionIgnition = vehicle.CompressionIgnition;
+
+        Replace(this.StoredDtcs, vehicle.StoredDtcs);
+        Replace(this.PendingDtcs, vehicle.PendingDtcs);
+        Replace(this.PermanentDtcs, []);
+
+        this.MilOn = vehicle.StoredDtcs.Count > 0;
+        this.FreezeFrameCaptured = vehicle.FreezeFrameDtc != null;
+        this.FreezeFrameDtc = vehicle.FreezeFrameDtc ?? "";
+
+        this.RefreshDerived();
+    }
+
+    void SetText(byte mode, byte pid, string value)
+    {
+        if (this.Find(mode, pid) is { } parameter)
+            parameter.Text = value;
+    }
+
+    void SetNumber(byte mode, byte pid, double value)
+    {
+        if (this.Find(mode, pid) is { } parameter)
+            parameter.Number = value;
+    }
+
+    static void Replace(ObservableCollection<string> target, IReadOnlyList<string> values)
+    {
+        target.Clear();
+        foreach (var value in values)
+            target.Add(value);
+    }
 
     /// <summary>
     /// Whether the vehicle claims support for a PID in a supported-PID bitmask. A block PID (20, 40, …)
@@ -189,6 +263,7 @@ public partial class ObdEmulatorState : ObservableObject
 
     static int Key(ObdParameter parameter) => (parameter.Mode << 8) | parameter.Pid;
 
+    partial void OnVehicleChanged(EmulatedVehicle value) => this.ApplyVehicle();
     partial void OnMilOnChanged(bool value) => this.RefreshDerived();
     partial void OnMonitorsCompleteChanged(bool value) => this.RefreshDerived();
     partial void OnCompressionIgnitionChanged(bool value) => this.RefreshDerived();

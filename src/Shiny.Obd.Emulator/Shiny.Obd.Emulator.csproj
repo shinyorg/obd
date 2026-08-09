@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <RootNamespace>Shiny.Obd.Emulator</RootNamespace>
+        <Description>An OBD-II adapter emulator for Shiny.Obd - answers the ELM327 dialect over TCP with selectable vehicles, settable PIDs and driving scenarios, so you can test without a car</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Obd\Shiny.Obd.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Obd.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommunityToolkit.Mvvm"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
+        <PackageReference Include="Shiny.Net.Discovery"/>
+    </ItemGroup>
+</Project>

@@ -55,6 +55,69 @@ public class VinNumberTests
     [Fact]
     public void IsPlausible_DoesNotValidateTheCheckDigit()
         => Assert.True(VinNumber.IsPlausible("WBA3A5C51DF598123"));
+
+    /// <summary>
+    /// Every one of these decodes cleanly through vPIC — "Check Digit (9th position) is correct" —
+    /// and they are the VINs the sample emulator answers with, so a break here breaks that too.
+    /// </summary>
+    [Theory]
+    [InlineData("2HGFC2F51JH542108", '1')]   // 2018 Honda Civic
+    [InlineData("4T1B11HK9KU742051", '9')]   // 2019 Toyota Camry
+    [InlineData("WBA5R1C58KA751236", '8')]   // 2019 BMW 330i
+    [InlineData("JTDKARFU5G3512804", '5')]   // 2016 Toyota Prius
+    [InlineData("3VWRA7AU1FM024518", '1')]   // 2015 VW Golf TDI
+    [InlineData("3C6UR5DL7JG264913", '7')]   // 2018 Ram 2500
+    [InlineData("1N4AZ1CP9KC310468", '9')]   // 2019 Nissan Leaf
+    [InlineData("1G1JC5246W7180425", '6')]   // 1998 Chevrolet Cavalier
+    [InlineData("1HGCM82633A004352", '3')]
+    public void CalculateCheckDigit_MatchesTheVinItCameFrom(string vin, char expected)
+    {
+        Assert.Equal(expected, VinNumber.CalculateCheckDigit(vin));
+        Assert.True(VinNumber.IsCheckDigitValid(vin));
+    }
+
+    /// <summary>Position 9 weighs zero, so the digit already there cannot influence the answer.</summary>
+    [Theory]
+    [InlineData("2HGFC2F50JH542108")]
+    [InlineData("2HGFC2F5XJH542108")]
+    public void CalculateCheckDigit_IgnoresWhateverIsAlreadyInPositionNine(string vin)
+        => Assert.Equal('1', VinNumber.CalculateCheckDigit(vin));
+
+    /// <summary>A remainder of ten is written X — the one non-digit a check digit can be.</summary>
+    [Fact]
+    public void CalculateCheckDigit_UsesXForARemainderOfTen()
+        => Assert.Equal('X', VinNumber.CalculateCheckDigit("1M8GDM9AXKP042788"));
+
+    [Fact]
+    public void CalculateCheckDigit_NormalizesFirst()
+        => Assert.Equal('1', VinNumber.CalculateCheckDigit(" 2hgfc2f51jh542108\0"));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("2HGFC2F51JH54210")]         // 16 — a truncated read
+    [InlineData("2HGFC2F51JH54210I")]        // not in the VIN alphabet
+    public void CalculateCheckDigit_AnswersNullForAnythingImplausible(string? vin)
+    {
+        Assert.Null(VinNumber.CalculateCheckDigit(vin));
+        Assert.False(VinNumber.IsCheckDigitValid(vin));
+    }
+
+    /// <summary>
+    /// The whole point of keeping this out of <see cref="VinNumber.IsPlausible"/>: a legitimate
+    /// European VIN whose check digit is not maintained still has to pass the plausibility gate.
+    /// </summary>
+    [Fact]
+    public void IsCheckDigitValid_RejectsAVinIsPlausibleAccepts()
+    {
+        Assert.True(VinNumber.IsPlausible("WBA3A5C51DF598123"));
+        Assert.False(VinNumber.IsCheckDigitValid("WBA3A5C51DF598123"));
+    }
+
+    /// <summary>Transposing two characters is the error a check digit exists to catch.</summary>
+    [Fact]
+    public void IsCheckDigitValid_CatchesATransposition()
+        => Assert.False(VinNumber.IsCheckDigitValid("2HGFC2F51JH542180"));
 }
 
 public class VpicVinDecoderTests

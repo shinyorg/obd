@@ -1,4 +1,4 @@
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// The drives the emulator ships with. Each one loops, so picking one and walking away leaves a client

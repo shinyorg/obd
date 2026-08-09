@@ -21,6 +21,10 @@
 
                     <Label Text="{Binding Player.ScenarioSummary}" FontSize="11" TextColor="Gray" />
 
+                    <!-- Mass, gearing and fuel come from the vehicle, so the same scenario drives
+                         differently in the pickup than in the Civic. -->
+                    <Label Text="{Binding State.Vehicle.Name, StringFormat='Driving a {0} · change it on the Adapter tab'}" FontSize="11" TextColor="Gray" />
+
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <Button Text="{Binding Player.ButtonText}" Command="{Binding ToggleCommand}" />
                         <Button

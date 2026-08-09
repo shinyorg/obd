@@ -4,7 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using Shiny.Net.Discovery;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// The WiFi-adapter equivalent of the BLE peripheral: a plain TCP server speaking the same ELM327
@@ -16,11 +16,15 @@ namespace Sample.Maui.Emulator;
 /// is why <c>WifiObdTransport</c> has to walk a list of well-known addresses. Publishing over mDNS is
 /// the part this emulator adds: browse <c>_obd._tcp</c> and the endpoint comes back with its port.
 /// </remarks>
+/// <param name="mdns">
+/// Optional. Register Shiny's <c>AddMdns()</c> and the emulator announces itself; without it the
+/// server still listens, it just has to be found by address.
+/// </param>
 public sealed class TcpObdServer(
     Elm327Responder responder,
-    ObdHostConfiguration config,
-    IMdnsManager mdns
-)
+    ObdEmulatorConfiguration config,
+    IMdnsManager? mdns = null
+) : IObdEmulatorTransport
 {
     readonly List<Task> clientTasks = [];
 
@@ -28,8 +32,13 @@ public sealed class TcpObdServer(
     CancellationTokenSource? cts;
     IMdnsPublication? publication;
 
+    /// <inheritdoc/>
+    public string Name => "TCP";
+
+    /// <inheritdoc/>
     public bool IsRunning { get; private set; }
 
+    /// <inheritdoc/>
     public string Status { get; private set; } = "Not started";
 
     public string MdnsStatus { get; private set; } = "Not published";
@@ -37,7 +46,19 @@ public sealed class TcpObdServer(
     /// <summary>The addresses a client can point <c>WifiObdTransport</c> at.</summary>
     public IReadOnlyList<string> Endpoints { get; private set; } = [];
 
-    public async Task<bool> Start(IObdHostSink sink)
+    /// <summary>
+    /// The port actually listening, which is only the configured one when that was non-zero. Zero
+    /// until <see cref="Start"/> succeeds.
+    /// </summary>
+    public int BoundPort { get; private set; }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> Details => this.IsRunning
+        ? [.. this.Endpoints.DefaultIfEmpty("no network"), this.MdnsStatus]
+        : [];
+
+    /// <inheritdoc/>
+    public async Task<bool> Start(IObdEmulatorSink sink, CancellationToken cancellationToken = default)
     {
         if (this.IsRunning)
             return true;
@@ -53,10 +74,14 @@ public sealed class TcpObdServer(
             return false;
         }
 
+        // Read the port back off the socket rather than trusting the configured one: port 0 asks the
+        // OS for a free one, which is how a test spins up several emulators at once without colliding.
+        this.BoundPort = ((IPEndPoint)this.listener.LocalEndpoint).Port;
+
         this.cts = new CancellationTokenSource();
-        this.Endpoints = [.. LocalAddresses().Select(x => $"{x}:{config.TcpPort}")];
+        this.Endpoints = [.. LocalAddresses().Select(x => $"{x}:{this.BoundPort}")];
         this.IsRunning = true;
-        this.Status = $"Listening on port {config.TcpPort}";
+        this.Status = $"Listening on port {this.BoundPort}";
 
         _ = this.AcceptLoop(sink, this.cts.Token);
         await this.Publish(sink).ConfigureAwait(true);
@@ -64,6 +89,7 @@ public sealed class TcpObdServer(
         return true;
     }
 
+    /// <inheritdoc/>
     public async Task Stop()
     {
         this.cts?.Cancel();
@@ -90,14 +116,21 @@ public sealed class TcpObdServer(
         this.Status = "Stopped";
         this.MdnsStatus = "Not published";
         this.Endpoints = [];
+        this.BoundPort = 0;
     }
 
-    async Task Publish(IObdHostSink sink)
+    async Task Publish(IObdEmulatorSink sink)
     {
+        if (mdns == null)
+        {
+            this.MdnsStatus = "Not published (no IMdnsManager registered)";
+            return;
+        }
+
         try
         {
             this.publication = await mdns
-                .Publish(new MdnsServiceRegistration(config.MdnsInstanceName, config.MdnsServiceType, config.TcpPort)
+                .Publish(new MdnsServiceRegistration(config.MdnsInstanceName, config.MdnsServiceType, this.BoundPort)
                 {
                     // A browsing client can tell what it found - and which dialect to speak - without
                     // having to connect and probe with ATI first.
@@ -110,7 +143,7 @@ public sealed class TcpObdServer(
                 })
                 .ConfigureAwait(true);
 
-            this.MdnsStatus = $"Published {config.MdnsInstanceName}.{config.MdnsServiceType} on port {config.TcpPort}";
+            this.MdnsStatus = $"Published {config.MdnsInstanceName}.{config.MdnsServiceType} on port {this.BoundPort}";
         }
         catch (Exception ex)
         {
@@ -119,7 +152,7 @@ public sealed class TcpObdServer(
         }
     }
 
-    async Task AcceptLoop(IObdHostSink sink, CancellationToken ct)
+    async Task AcceptLoop(IObdEmulatorSink sink, CancellationToken ct)
     {
         while (!ct.IsCancellationRequested && this.listener != null)
         {
@@ -149,7 +182,7 @@ public sealed class TcpObdServer(
         }
     }
 
-    async Task Serve(TcpClient client, IObdHostSink sink, CancellationToken ct)
+    async Task Serve(TcpClient client, IObdEmulatorSink sink, CancellationToken ct)
     {
         var address = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
         var hosted = new HostedClient

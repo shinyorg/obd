@@ -1,8 +1,8 @@
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// One request and the reply the emulator produced for it, plus a plain-language note for the log on
-/// the Adapter tab.
+/// the emulator's live log.
 /// </summary>
 /// <param name="Request">The command as received, normalised.</param>
 /// <param name="Lines">The response lines, without the trailing prompt.</param>

@@ -1,4 +1,4 @@
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>A client currently talking to the emulator, over either transport.</summary>
 public partial class HostedClient : ObservableObject
@@ -23,7 +23,7 @@ public partial class HostedClient : ObservableObject
     partial void OnLastRequestChanged(string value) => this.OnPropertyChanged(nameof(this.Detail));
 }
 
-/// <summary>One line in the live command log on the Adapter tab.</summary>
+/// <summary>One line in the emulator's live command log.</summary>
 public sealed record ObdLogEntry(DateTime Timestamp, string Transport, string Request, string Response, string Description)
 {
     public string Title => $"{this.Timestamp:HH:mm:ss.fff}  {this.Transport}  →  {this.Request}";
@@ -35,7 +35,7 @@ public sealed record ObdLogEntry(DateTime Timestamp, string Transport, string Re
 /// What a transport reports back to the app: who is connected and what they asked for. Keeps the BLE
 /// and TCP servers free of any knowledge of the UI.
 /// </summary>
-public interface IObdHostSink
+public interface IObdEmulatorSink
 {
     void ClientConnected(HostedClient client);
 

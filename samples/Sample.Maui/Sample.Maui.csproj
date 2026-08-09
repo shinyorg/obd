@@ -36,6 +36,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Obd.Ble\Shiny.Obd.Ble.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Obd.Emulator\Shiny.Obd.Emulator.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Obd.Emulator.Ble\Shiny.Obd.Emulator.Ble.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

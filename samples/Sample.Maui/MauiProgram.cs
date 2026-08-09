@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Sample.Maui.Emulator;
+using Shiny.Obd.Emulator;
 using Shiny;
 using Shiny.Obd.Ble;
 
@@ -31,20 +31,11 @@ public static class MauiProgram
 
         // ---- Adapter side: pretend to be one (Adapter / Values / Faults tabs) -------------------
         // The emulator answers the same UUIDs the client above scans for, so two devices running this
-        // app can drive each other with no configuration.
-        builder.Services.AddBluetoothLeHosting();
+        // app can drive each other with no configuration. AddMdns is optional - it only adds the
+        // _obd._tcp announcement, so a client can find the WiFi side without being told an address.
         builder.Services.AddMdns();
-
-        builder.Services.AddSingleton<ObdHostConfiguration>();
-        builder.Services.AddSingleton<ObdEmulatorState>();
-        builder.Services.AddSingleton<Elm327Responder>();
-        builder.Services.AddSingleton<BleObdPeripheral>();
-        builder.Services.AddSingleton<TcpObdServer>();
-        builder.Services.AddSingleton<ObdHostService>();
-
-        // Drives the emulator's live values from a scenario. Singleton so a drive keeps playing while
-        // you are on another tab - which is the whole point of the long scenarios.
-        builder.Services.AddSingleton<DrivingScenarioPlayer>();
+        builder.Services.AddObdEmulator();
+        builder.Services.AddObdEmulatorBluetoothLE();
 
         return builder.Build();
     }

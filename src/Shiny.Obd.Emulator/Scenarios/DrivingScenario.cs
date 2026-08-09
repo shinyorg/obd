@@ -1,4 +1,4 @@
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// What the driver is doing during a step. The action decides how hard the speed moves toward
@@ -27,7 +27,7 @@ public enum DrivingAction
 }
 
 /// <summary>One leg of a drive: what the car is doing, where it is heading, and for how long.</summary>
-/// <param name="Label">Shown while the step is playing, so the numbers on screen have a story attached.</param>
+/// <param name="Label">Shown while the step is playing, so the live numbers have a story attached.</param>
 /// <param name="Action">How the speed is driven toward <paramref name="TargetSpeedKph"/>.</param>
 /// <param name="TargetSpeedKph">
 /// The speed the step is aiming at. For <see cref="DrivingAction.Brake"/>, <see cref="DrivingAction.HarshBrake"/>
@@ -47,7 +47,7 @@ public sealed class DrivingScenario
 {
     public required string Name { get; init; }
 
-    /// <summary>One line describing the drive, shown under the picker.</summary>
+    /// <summary>One line describing the drive.</summary>
     public required string Summary { get; init; }
 
     public required IReadOnlyList<DrivingStep> Steps { get; init; }

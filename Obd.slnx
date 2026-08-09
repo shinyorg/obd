@@ -15,6 +15,8 @@
   </Folder>
   <Project Path="src/Shiny.Obd/Shiny.Obd.csproj" />
   <Project Path="src/Shiny.Obd.Ble/Shiny.Obd.Ble.csproj" />
+  <Project Path="src/Shiny.Obd.Emulator/Shiny.Obd.Emulator.csproj" />
+  <Project Path="src/Shiny.Obd.Emulator.Ble/Shiny.Obd.Emulator.Ble.csproj" />
   <Project Path="src/Shiny.Obd.Serial/Shiny.Obd.Serial.csproj" />
   <Project Path="src/Shiny.Obd.Wifi/Shiny.Obd.Wifi.csproj" />
   <Project Path="tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj" />

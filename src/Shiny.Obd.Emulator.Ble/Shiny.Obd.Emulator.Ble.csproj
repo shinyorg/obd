@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-android</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios</TargetFrameworks>
+        <RootNamespace>Shiny.Obd.Emulator.Ble</RootNamespace>
+        <Description>BLE peripheral front-end for Shiny.Obd.Emulator - advertises the emulated vehicle as a Bluetooth LE OBD-II adapter</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Obd.Emulator\Shiny.Obd.Emulator.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
+        <PackageReference Include="Shiny.BluetoothLE.Hosting"/>
+    </ItemGroup>
+</Project>

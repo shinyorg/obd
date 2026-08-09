@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// The per-connection state a real ELM327 keeps: echo, spaces, headers and linefeeds. Each connected

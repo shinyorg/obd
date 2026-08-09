@@ -2,7 +2,7 @@ using System.Text;
 using Shiny;
 using Shiny.BluetoothLE.Hosting;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator.Ble;
 
 /// <summary>
 /// Presents the emulator as a BLE OBD adapter: a GATT service with a write characteristic for
@@ -16,8 +16,8 @@ namespace Sample.Maui.Emulator;
 public sealed class BleObdPeripheral(
     IBleHostingManager manager,
     Elm327Responder responder,
-    ObdHostConfiguration config
-)
+    ObdEmulatorConfiguration config
+) : IObdEmulatorTransport
 {
     /// <summary>
     /// The default ATT payload on a 23-byte MTU, and what the real adapters emit regardless of what
@@ -31,11 +31,22 @@ public sealed class BleObdPeripheral(
 
     IGattCharacteristic? notifyCharacteristic;
 
+    /// <inheritdoc/>
+    public string Name => "BLE";
+
+    /// <inheritdoc/>
     public bool IsRunning { get; private set; }
 
+    /// <inheritdoc/>
     public string Status { get; private set; } = "Not started";
 
-    public async Task<bool> Start(IObdHostSink sink)
+    /// <inheritdoc/>
+    public IReadOnlyList<string> Details => this.IsRunning
+        ? [$"service {config.ServiceUuid} · notify {config.NotifyCharacteristicUuid} · write {config.WriteCharacteristicUuid}"]
+        : [];
+
+    /// <inheritdoc/>
+    public async Task<bool> Start(IObdEmulatorSink sink, CancellationToken cancellationToken = default)
     {
         if (this.IsRunning)
             return true;
@@ -100,7 +111,8 @@ public sealed class BleObdPeripheral(
         return true;
     }
 
-    public void Stop()
+    /// <inheritdoc/>
+    public Task Stop()
     {
         if (manager.IsAdvertising)
             manager.StopAdvertising();
@@ -113,9 +125,10 @@ public sealed class BleObdPeripheral(
 
         this.IsRunning = false;
         this.Status = "Stopped";
+        return Task.CompletedTask;
     }
 
-    async Task OnWrite(WriteRequest request, IObdHostSink sink)
+    async Task OnWrite(WriteRequest request, IObdEmulatorSink sink)
     {
         try
         {
@@ -197,7 +210,7 @@ public sealed class BleObdPeripheral(
         }
     }
 
-    void Forget(IPeripheral central, IObdHostSink sink)
+    void Forget(IPeripheral central, IObdEmulatorSink sink)
     {
         lock (this.gate)
             this.clients.Remove(central.Uuid);

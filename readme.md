@@ -26,7 +26,7 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 - **Emissions monitor readiness** — the full mode 01 PID 01/41 bit layout decoded for both spark and compression ignition, with `IsReadyForInspection` answering the question an emissions test actually asks.
 - **Freeze frames** — `AsFreezeFrame()` on any mode 01 command reads the same PID out of the snapshot the ECU stored when a code was set, so you get the conditions at the moment of the fault rather than the conditions now.
 - **VIN decoding** — `IVinDecoder` turns the VIN off the ECU into make, model, year and the engine/drivetrain/body a registry knows about. NHTSA vPIC ships built in (free, keyless); register your own provider with one line.
-- **Test without a car** — the [sample app](samples/Sample.Maui) is also an adapter. It hosts an ELM327-compatible OBD-II bus over BLE *and* TCP, with every PID, trouble code and readiness flag set from a UI. See [Adapter Emulator](#adapter-emulator-sample).
+- **Test without a car** — `Shiny.Obd.Emulator` *is* an adapter. It hosts an ELM327-compatible OBD-II bus over TCP (and BLE, with one more package), with every PID, trouble code and readiness flag settable, eight vehicles whose VINs decode for real, and driving scenarios that play into it. Runs headless in a test, or behind the [sample app](samples/Sample.Maui)'s UI. See [Adapter Emulator](#adapter-emulator).
 
 ## Projects
 
@@ -36,6 +36,8 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 | `Shiny.Obd.Ble` | `net10.0` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
 | `Shiny.Obd.Serial` | `net10.0` | Serial (USB/UART) transport — Windows, Linux, macOS, Mac Catalyst |
 | `Shiny.Obd.Wifi` | `net10.0` | WiFi (TCP) transport — every platform, including iOS and Android |
+| `Shiny.Obd.Emulator` | `net10.0` | Adapter emulator — be a vehicle instead of reading one, over TCP |
+| `Shiny.Obd.Emulator.Ble` | `net10.0` | BLE peripheral front-end for the emulator |
 
 ## Quick Start
 
@@ -574,9 +576,21 @@ registry sends:
 > implementation you register must do the same.
 
 `VinNumber.IsPlausible` is the pure pre-check — 17 characters from the VIN alphabet, with I, O and Q
-excluded because they are confusable with 1 and 0. The check digit is deliberately **not** validated:
+excluded because they are confusable with 1 and 0. The check digit is deliberately **not** part of it:
 it is only mandatory in North America, so rejecting a legitimate non-NA VIN would cost more than one
 wasted request.
+
+It is available on its own when you want it:
+
+```csharp
+VinNumber.CalculateCheckDigit("2HGFC2F51JH542108");   // '1' — or 'X', or null if implausible
+VinNumber.IsCheckDigitValid("2HGFC2F51JH542108");     // true
+```
+
+Use it on a VIN a *user typed* (a transposition is exactly what it catches) and to *generate* VINs a
+decoder will accept — a real WMI and descriptor plus a computed position 9 gives you a VIN that
+decodes to a real make, model and year without belonging to anyone's car, which is how the emulator
+builds its vehicles. Do not use it to reject a VIN read off a vehicle.
 
 ## Adapter Profiles
 
@@ -1063,21 +1077,62 @@ The `Send` method must:
 2. Read the response until the `>` prompt character
 3. Return the response text (without the `>` prompt)
 
-## Adapter Emulator (Sample)
+## Adapter Emulator
 
-Testing an OBD app usually means sitting in a car with the engine running. The sample app in
-[`samples/Sample.Maui`](samples/Sample.Maui) can also *be* the adapter, so you can do it at a desk.
+Testing an OBD app usually means sitting in a car with the engine running. `Shiny.Obd.Emulator` is the
+other side of this library — it *is* the adapter, so you can do it at a desk, or in CI.
 
-It runs both roles at once — the **Scan** tab is a client that finds and reads a real adapter, and the
-**Adapter**, **Drive**, **Values** and **Faults** tabs turn the device into an ELM327-compatible OBD-II
-adapter that other apps connect to. Point one device at another, or point any third-party OBD app at it.
+```csharp
+services.AddMdns();                       // optional - announces the TCP side as _obd._tcp
+services.AddObdEmulator();                // vehicle, ELM327 responder, TCP front-end, scenarios
+services.AddObdEmulatorBluetoothLE();     // optional - also advertise as a BLE adapter
+```
+
+```csharp
+var host = provider.GetRequiredService<ObdEmulatorHost>();
+var state = provider.GetRequiredService<ObdEmulatorState>();
+
+state.Vehicle = VehicleCatalog.NissanLeaf;     // a BEV, with a VIN that decodes
+state.Find(0x01, 0x0D)!.Number = 88;           // 88 km/h
+
+await host.Start();                            // nothing listens until you say so
+```
+
+Point a `Shiny.Obd` client — or any third-party OBD app — at it. Because it speaks the wire protocol
+rather than mocking the library, it is just as useful for testing an app that has nothing to do with
+.NET.
+
+**It works headless.** There is no UI framework anywhere in the package: `AddObdEmulator` captures
+whatever `SynchronizationContext` you register it on (the UI thread in MAUI, WPF and WinForms) and
+marshals state changes back to it, and in a console or a test host — where there is no context — it
+runs inline. Set `TcpPort = 0` and the OS assigns a free port, which is how the test suite in this
+repo runs several emulators at once:
+
+```csharp
+var config = new ObdEmulatorConfiguration { TcpPort = 0 };
+var state = new ObdEmulatorState();
+var server = new TcpObdServer(new Elm327Responder(state), config);
+var host = new ObdEmulatorHost([server], config, new SynchronizationContextDispatcher(null));
+
+await host.Start();
+
+await using var connection = new ObdConnection(new WifiObdTransport("127.0.0.1", server.BoundPort));
+await connection.Connect();
+
+Assert.Equal(88, await connection.Execute(StandardCommands.VehicleSpeed));
+```
+
+Transports are additive and share one vehicle, so a value you set is answered identically over every
+one of them — and you can add your own by implementing `IObdEmulatorTransport`.
+
+**There is a UI for it too.** The sample app in [`samples/Sample.Maui`](samples/Sample.Maui) wraps the
+package in a full front-end and runs both roles at once: the **Scan** tab is a client that reads a real
+adapter, while the **Adapter**, **Drive**, **Values** and **Faults** tabs drive the emulator — every PID,
+trouble code and readiness flag settable by hand, with a live command log.
 
 ```bash
 dotnet build samples/Sample.Maui/Sample.Maui.csproj -f net10.0-android   # or -f net10.0-ios
 ```
-
-Hosting starts the moment the app launches — there is no button to press first — and the Adapter tab
-shows what is being advertised, who is connected, and every command as it arrives.
 
 **Two transports, one vehicle.** A GATT service on `FFF0`/`FFF1`/`FFF2` advertised as `VEEPEAK` (the
 `BleObdConfiguration` defaults, so the Scan tab on a second device finds it with no configuration),
@@ -1109,6 +1164,16 @@ real adapter does; responses chunked into 20-byte BLE notifications; and multi-f
 the byte-count line and numbered frames, so a VIN read exercises the real path rather than pretending
 it away. Modes 01, 02, 03, 04, 06, 07, 09 and 0A are all answered.
 
+**It is a specific car, with a VIN that decodes.** Almost every OBD app keys a vehicle by its VIN, so
+an emulator answering a made-up one is useless the moment you decode it. The Adapter tab picks from
+eight vehicles — a Civic, a Camry, a 330i, a Prius, a Golf TDI, a Cummins Ram 2500, a Leaf and a 1998
+Cavalier — each carrying a VIN with a real WMI and descriptor, a valid check digit, and a decode
+verified against vPIC, so `IVinDecoder` answers with a real make, model and year. Picking one rewrites
+the whole car: identity PIDs, *which PIDs exist at all* (the diesels have no narrowband O2 sensors or
+evap system, the Leaf drops a third of mode 01, the Cavalier answers no mode 09 and so has no VIN to
+read), the readiness monitor set, the seeded fault codes, and the mass, gearing and fuel chemistry a
+drive is played through.
+
 **Every command is settable.** The Values tab lists all 90-odd commands, searchable by name or request
 (`010C`, `0902`). Each has a supported switch — turn a PID off and it answers `NO DATA` *and* drops out
 of the supported-PID bitmask, so a client walking `0100`/`0120`/`0140` discovers exactly the set you
@@ -1122,9 +1187,11 @@ somewhere else.
 mishandles a gear change or an hour of continuous polling. The Drive tab plays a looping scenario into
 the emulator at five updates a second — **Warm idle**, **City driving** (lights, a school zone, a
 roundabout, one emergency stop), **Busy highway** (merge, overtakes, a truck cutting in, a stop-and-go
-jam) or **Mixed commute** (city, highway, city — about half an hour a lap). One model of a car drives
-every parameter, so RPM matches the gear the speed implies, mass air flow matches the load, fuel rate
-matches the air flow, and the odometer, fuel level and trip counters integrate across laps. Gear
+jam) or **Mixed commute** (city, highway, city — about half an hour a lap). The selected vehicle's own
+model drives every parameter, so RPM matches the gear the speed implies, mass air flow matches the load
+and the engine's displacement, fuel rate matches the air flow at that fuel's density, and the odometer,
+fuel level and trip counters integrate across laps — and the Cummins pickup does not produce the same
+numbers as the Civic. Gear
 changes, deceleration fuel cut and harsh braking are all in there. Everything the scenario does not
 model — the supported switches, the fault memory, the adapter identity — stays where you set it, so you
 can add a trouble code mid-drive.

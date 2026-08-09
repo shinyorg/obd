@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:Sample.Maui"
-    xmlns:emu="clr-namespace:Sample.Maui.Emulator"
+    xmlns:emu="clr-namespace:Shiny.Obd.Emulator"
     x:Class="Sample.Maui.ParametersPage"
     x:DataType="local:ParametersViewModel"
     Title="Vehicle Values">

@@ -1,14 +1,14 @@
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// How the emulator presents itself on each transport.
 /// </summary>
 /// <remarks>
 /// The BLE defaults are the FFF0/FFF1/FFF2 triple used by Veepeak OBDCheck BLE and the ELM327 clones
-/// built on the same module - and they are what <c>BleObdConfiguration</c> defaults to, so the Scan
-/// tab in this same app finds this app running on another device with no configuration at all.
+/// built on the same module - and they are what <c>BleObdConfiguration</c> defaults to, so a
+/// Shiny.Obd client scanning for an adapter finds this emulator with no configuration on either side.
 /// </remarks>
-public class ObdHostConfiguration
+public class ObdEmulatorConfiguration
 {
     /// <summary>GATT service the emulator advertises.</summary>
     public string ServiceUuid { get; set; } = "FFF0";

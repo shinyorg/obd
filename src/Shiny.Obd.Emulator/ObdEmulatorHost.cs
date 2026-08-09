@@ -1,38 +1,43 @@
 using System.Collections.ObjectModel;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
-/// Starts and stops both front-ends and collects what they see, so the UI has one thing to bind to.
+/// Starts and stops every registered transport and collects what they see, so there is one thing to
+/// bind a UI to - or one thing to await in a test.
 /// </summary>
 /// <remarks>
-/// Started from the Adapter tab rather than at launch: a device that is only here to read a real
-/// adapter has no business advertising a GATT service and holding a TCP listener open. Both transports
-/// then run at the same time and share one vehicle: a value you change is answered identically over
-/// BLE and TCP.
+/// <para>
+/// Nothing starts at registration: a device that is only here to read a real adapter has no business
+/// advertising a GATT service and holding a TCP listener open. Call <see cref="Start"/> when you want
+/// to be an adapter.
+/// </para>
+/// <para>
+/// All transports run at once and share one vehicle, so a value you change is answered identically
+/// over every one of them.
+/// </para>
 /// </remarks>
-public partial class ObdHostService(
-    BleObdPeripheral ble,
-    TcpObdServer tcp,
-    ObdHostConfiguration config
-) : ObservableObject, IObdHostSink
+public partial class ObdEmulatorHost(
+    IEnumerable<IObdEmulatorTransport> transports,
+    ObdEmulatorConfiguration config,
+    IObdEmulatorDispatcher dispatcher
+) : ObservableObject, IObdEmulatorSink
 {
     /// <summary>Enough history to see an initialisation handshake and a few polling cycles.</summary>
     const int MaxLogEntries = 250;
 
     readonly SemaphoreSlim gate = new(1, 1);
 
+    /// <summary>Every transport the emulator can answer on, running or not.</summary>
+    public IReadOnlyList<IObdEmulatorTransport> Transports { get; } = [.. transports];
+
     public ObservableCollection<HostedClient> Clients { get; } = [];
 
     public ObservableCollection<ObdLogEntry> Log { get; } = [];
 
-    public ObdHostConfiguration Configuration => config;
+    public ObdEmulatorConfiguration Configuration => config;
 
     [ObservableProperty] bool isRunning;
-    [ObservableProperty] string bleStatus = "Not started";
-    [ObservableProperty] string tcpStatus = "Not started";
-    [ObservableProperty] string mdnsStatus = "Not published";
-    [ObservableProperty] string tcpEndpoints = "-";
 
     public bool HasClients => this.Clients.Count > 0;
 
@@ -45,29 +50,35 @@ public partial class ObdHostService(
         var n => $"{n} clients connected"
     };
 
-    public async Task Start()
+    /// <summary>
+    /// Brings up every transport. One that cannot start says so in its own
+    /// <see cref="IObdEmulatorTransport.Status"/> and is skipped - the emulator is running as long as
+    /// at least one client can reach it.
+    /// </summary>
+    public async Task Start(CancellationToken cancellationToken = default)
     {
-        await this.gate.WaitAsync().ConfigureAwait(true);
+        await this.gate.WaitAsync(cancellationToken).ConfigureAwait(true);
         try
         {
             if (this.IsRunning)
                 return;
 
-            // Deliberately independent: a device with no BLE peripheral support (or Bluetooth switched
-            // off) should still come up as a WiFi adapter, and vice versa.
-            await ble.Start(this).ConfigureAwait(true);
-            this.BleStatus = ble.Status;
+            foreach (var transport in this.Transports)
+            {
+                try
+                {
+                    await transport.Start(this, cancellationToken).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    // Deliberately independent: a device with no BLE peripheral support should still
+                    // come up as a WiFi adapter, and vice versa.
+                    this.Failed(transport.Name, ex);
+                }
+            }
 
-            await tcp.Start(this).ConfigureAwait(true);
-            this.TcpStatus = tcp.Status;
-            this.MdnsStatus = tcp.MdnsStatus;
-            this.TcpEndpoints = tcp.Endpoints.Count == 0 ? "no network" : String.Join("\n", tcp.Endpoints);
-
-            this.IsRunning = ble.IsRunning || tcp.IsRunning;
-        }
-        catch (Exception ex)
-        {
-            this.Failed("host", ex);
+            this.IsRunning = this.Transports.Any(x => x.IsRunning);
+            this.RaiseTransportStatus();
         }
         finally
         {
@@ -80,16 +91,22 @@ public partial class ObdHostService(
         await this.gate.WaitAsync().ConfigureAwait(true);
         try
         {
-            ble.Stop();
-            await tcp.Stop().ConfigureAwait(true);
+            foreach (var transport in this.Transports)
+            {
+                try
+                {
+                    await transport.Stop().ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    this.Failed(transport.Name, ex);
+                }
+            }
 
-            this.BleStatus = ble.Status;
-            this.TcpStatus = tcp.Status;
-            this.MdnsStatus = tcp.MdnsStatus;
-            this.TcpEndpoints = "-";
             this.IsRunning = false;
+            this.RaiseTransportStatus();
 
-            this.OnMainThread(() =>
+            dispatcher.Invoke(() =>
             {
                 this.Clients.Clear();
                 this.RaiseClientCounts();
@@ -101,15 +118,15 @@ public partial class ObdHostService(
         }
     }
 
-    public async Task Restart()
+    public async Task Restart(CancellationToken cancellationToken = default)
     {
         await this.Stop().ConfigureAwait(true);
-        await this.Start().ConfigureAwait(true);
+        await this.Start(cancellationToken).ConfigureAwait(true);
     }
 
-    // ---- IObdHostSink -----------------------------------------------------------------------------
+    // ---- IObdEmulatorSink -------------------------------------------------------------------------
 
-    public void ClientConnected(HostedClient client) => this.OnMainThread(() =>
+    public void ClientConnected(HostedClient client) => dispatcher.Invoke(() =>
     {
         if (this.Clients.Any(x => x.Id == client.Id))
             return;
@@ -119,7 +136,7 @@ public partial class ObdHostService(
         this.Append(new ObdLogEntry(DateTime.Now, client.Transport, "(connected)", client.Address, "client connected"));
     });
 
-    public void ClientDisconnected(string id) => this.OnMainThread(() =>
+    public void ClientDisconnected(string id) => dispatcher.Invoke(() =>
     {
         var existing = this.Clients.FirstOrDefault(x => x.Id == id);
         if (existing == null)
@@ -130,7 +147,7 @@ public partial class ObdHostService(
         this.Append(new ObdLogEntry(DateTime.Now, existing.Transport, "(disconnected)", existing.Address, "client disconnected"));
     });
 
-    public void Exchanged(HostedClient client, ObdExchange exchange) => this.OnMainThread(() =>
+    public void Exchanged(HostedClient client, ObdExchange exchange) => dispatcher.Invoke(() =>
     {
         // The transports create their own HostedClient instance; bind updates to the one already in
         // the collection so the row the UI is showing is the row that moves.
@@ -154,11 +171,11 @@ public partial class ObdHostService(
         ));
     });
 
-    public void Failed(string transport, Exception ex) => this.OnMainThread(
+    public void Failed(string transport, Exception ex) => dispatcher.Invoke(
         () => this.Append(new ObdLogEntry(DateTime.Now, transport, "(error)", ex.Message, ex.GetType().Name))
     );
 
-    public void ClearLog() => this.OnMainThread(this.Log.Clear);
+    public void ClearLog() => dispatcher.Invoke(this.Log.Clear);
 
     // ---- Plumbing ---------------------------------------------------------------------------------
 
@@ -179,11 +196,9 @@ public partial class ObdHostService(
         this.OnPropertyChanged(nameof(this.ClientSummary));
     }
 
-    void OnMainThread(Action action)
-    {
-        if (MainThread.IsMainThread)
-            action();
-        else
-            MainThread.BeginInvokeOnMainThread(action);
-    }
+    /// <summary>
+    /// The transports are plain objects rather than observables - starting them all is the only thing
+    /// that changes their status, so one nudge afterwards is enough to repaint.
+    /// </summary>
+    void RaiseTransportStatus() => dispatcher.Invoke(() => this.OnPropertyChanged(nameof(this.Transports)));
 }

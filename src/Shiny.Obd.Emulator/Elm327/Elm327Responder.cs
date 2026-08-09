@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using Shiny.Obd.Commands;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// Turns an ELM327 command line into the reply a simulated adapter would send. Transport-agnostic on

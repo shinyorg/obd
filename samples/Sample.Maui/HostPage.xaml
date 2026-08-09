@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:Sample.Maui"
-    xmlns:emu="clr-namespace:Sample.Maui.Emulator"
+    xmlns:emu="clr-namespace:Shiny.Obd.Emulator"
     x:Class="Sample.Maui.HostPage"
     x:DataType="local:HostViewModel"
     Title="OBD Adapter Emulator">
@@ -13,23 +13,42 @@
         <!-- Transport status -->
         <VerticalStackLayout Spacing="8">
 
+            <!-- Which vehicle the emulator is. The VIN is real enough to decode, and everything else
+                 on this screen follows from the choice. -->
             <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
                 <VerticalStackLayout Spacing="4">
-                    <Label Text="BLUETOOTH LE" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
-                    <Label Text="{Binding Host.BleStatus}" FontSize="14" />
-                    <Label Text="{Binding BleSummary}" FontSize="11" TextColor="Gray" />
+                    <Label Text="VEHICLE" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                    <Picker
+                        ItemsSource="{Binding State.Vehicles}"
+                        SelectedItem="{Binding State.Vehicle}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=emu:EmulatedVehicle}" />
+                    <Label Text="{Binding State.Vehicle.Vin}" FontSize="13" FontFamily="Monospace" />
+                    <Label Text="{Binding State.Vehicle.Decodes}" FontSize="12" />
+                    <Label Text="{Binding State.Vehicle.Note}" FontSize="11" TextColor="Gray" />
                 </VerticalStackLayout>
             </Border>
 
-            <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
-                <VerticalStackLayout Spacing="4">
-                    <Label Text="TCP / WIFI" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
-                    <Label Text="{Binding Host.TcpStatus}" FontSize="14" />
-                    <Label Text="{Binding Host.TcpEndpoints}" FontSize="12" FontFamily="Monospace" />
-                    <Label Text="{Binding Host.MdnsStatus}" FontSize="11" TextColor="Gray" />
-                    <Label Text="{Binding MdnsSummary}" FontSize="11" TextColor="Gray" />
-                </VerticalStackLayout>
-            </Border>
+            <!-- One card per registered transport. The emulator answers on all of them at once and
+                 they share one vehicle, so a value set here is read back identically over each. -->
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Host.Transports}" Spacing="12">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="emu:IObdEmulatorTransport">
+                        <Border Padding="12" Stroke="LightGray" StrokeShape="RoundRectangle 8">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="{Binding Name}" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
+                                <Label Text="{Binding Status}" FontSize="14" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Details}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Label Text="{Binding .}" FontSize="11" FontFamily="Monospace" TextColor="Gray" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
 
             <Button Text="{Binding HostButtonText}" Command="{Binding ToggleHostCommand}" />
 

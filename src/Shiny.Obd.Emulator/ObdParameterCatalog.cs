@@ -2,7 +2,7 @@ using System.Text;
 using Shiny.Obd;
 using Shiny.Obd.Commands;
 
-namespace Sample.Maui.Emulator;
+namespace Shiny.Obd.Emulator;
 
 /// <summary>
 /// Every command <c>Shiny.Obd</c> can issue, paired with an encoder that is the exact inverse of that
@@ -23,7 +23,7 @@ public static class ObdParameterCatalog
             Derived(
                 "Monitor status since DTCs cleared", 0x01,
                 state.EncodeMonitorStatus, StandardCommands.MonitorStatus,
-                "Follows the MIL switch, the stored DTC count and the readiness toggle on the Faults tab."
+                "Follows the MIL switch, the stored DTC count and the readiness toggle."
             ),
             Hex(
                 "Fuel system status", 0x03, "02 00", StandardCommands.FuelSystemStatus,
@@ -107,12 +107,12 @@ public static class ObdParameterCatalog
 
             // ---- Mode 09: vehicle information ---------------------------------------------------
             Text(
-                "VIN", 0x02, "1G1JC5444R7252367", v => WithCount(Ascii(v, 17)), StandardCommands.Vin,
-                "17 characters. Long enough to force a multi-frame reply, which is the interesting case to test.",
+                "VIN", 0x02, state.Vehicle.Vin, v => WithCount(Ascii(v, 17)), StandardCommands.Vin,
+                "17 characters, and the identity every app keys a vehicle by. Long enough to force a multi-frame reply, which is the interesting case to test.",
                 mode: 0x09
             ),
             Text(
-                "Calibration ID", 0x04, "SHINY-OBD-CAL01", v => WithCount(Ascii(v, 16)), StandardCommands.CalibrationId,
+                "Calibration ID", 0x04, state.Vehicle.CalibrationId, v => WithCount(Ascii(v, 16)), StandardCommands.CalibrationId,
                 "Padded to a 16-byte block.",
                 mode: 0x09
             ),
@@ -127,7 +127,7 @@ public static class ObdParameterCatalog
                 mode: 0x09
             ),
             Text(
-                "ECU name", 0x0A, "ECM-EngineControl", v => WithCount(Ascii(v, 20)), StandardCommands.EcuName,
+                "ECU name", 0x0A, state.Vehicle.EcuName, v => WithCount(Ascii(v, 20)), StandardCommands.EcuName,
                 "Padded to a 20-byte field.",
                 mode: 0x09
             ),
