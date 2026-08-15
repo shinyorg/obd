@@ -34,7 +34,7 @@ change unless there's a reason not to.
 
 3. **Skill** (`skills/shiny-obd/SKILL.md`)
    - This is the source of the published `shiny-obd` Claude Code skill — the agent-facing
-     "how to generate correct code" doc. It syncs to the `shiny-client` plugin in the
+     "how to generate correct code" doc. It syncs to the single `shiny` plugin in the
      [shinyorg/skills](https://github.com/shinyorg/skills) repo via `.github/workflows/sync-skills.yml`.
    - Keep `SKILL.md` aligned with the code. Update the `triggers:` keyword list near the top when a
      new public type / command / transport is introduced.
