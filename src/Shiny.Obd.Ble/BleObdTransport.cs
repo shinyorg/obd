@@ -35,6 +35,12 @@ public class BleObdTransport : IObdTransport, IDisposable
     TaskCompletionSource<string>? responseTcs;
 
     /// <summary>
+    /// Resolved from the write characteristic's own properties on connect — see
+    /// <see cref="ResolveWriteMode"/>.
+    /// </summary>
+    bool writeWithResponse;
+
+    /// <summary>
     /// Create a transport that will scan for a BLE OBD adapter
     /// </summary>
     public BleObdTransport(IBleManager bleManager, BleObdConfiguration config)
@@ -84,13 +90,67 @@ public class BleObdTransport : IObdTransport, IDisposable
                 .ConfigureAwait(false);
         }
 
-        await this.peripheral.ConnectAsync(cancelToken: ct).ConfigureAwait(false);
+        // The config is passed explicitly rather than left to default. Shiny's default is
+        // AutoConnect: true, which on Android is ConnectGatt's background path — see the note on
+        // BleObdConfiguration.AutoConnect for why that is the wrong path for an adapter somebody is
+        // waiting on.
+        await this.peripheral
+            .ConnectAsync(
+                new ConnectionConfig(this.config.AutoConnect),
+                ct,
+                this.config.ConnectTimeout
+            )
+            .ConfigureAwait(false);
+
+        this.writeWithResponse = await this.ResolveWriteMode(ct).ConfigureAwait(false);
 
         this.notificationSub = this.peripheral
             .NotifyCharacteristic(
                 this.config.ServiceUuid,
                 this.config.ReadCharacteristicUuid)
             .Subscribe(this.OnNotificationReceived);
+    }
+
+    /// <summary>
+    /// Whether commands have to be written with a GATT response, from what the adapter's write
+    /// characteristic actually advertises.
+    /// </summary>
+    /// <remarks>
+    /// Write-without-response is preferred where the adapter offers it: an ELM327 exchange is
+    /// request/response over a serial emulation, so the notification is already the acknowledgement and
+    /// a GATT-level one on top of it only costs a round trip.
+    /// <para>
+    /// ⚠️ But it has to be <i>offered</i>. Assuming it — which is what this did unconditionally — is
+    /// silently dropped by a clone whose TX characteristic is write-with-response only: the command
+    /// never reaches the adapter, nothing ever answers, and the caller sits out the full
+    /// <see cref="BleObdConfiguration.CommandTimeout"/> for a reply that was never coming. A run of
+    /// those is indistinguishable from a dead adapter.
+    /// </para>
+    /// </remarks>
+    async Task<bool> ResolveWriteMode(CancellationToken ct)
+    {
+        try
+        {
+            var characteristic = await this.peripheral!
+                .GetCharacteristicAsync(
+                    this.config.ServiceUuid,
+                    this.config.WriteCharacteristicUuid,
+                    ct
+                )
+                .ConfigureAwait(false);
+
+            return !characteristic.CanWriteWithoutResponse();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Discovery said nothing useful. Keep the historical assumption rather than fail a connect
+            // that is otherwise fine.
+            return false;
+        }
     }
 
     public Task Disconnect()
@@ -126,7 +186,7 @@ public class BleObdTransport : IObdTransport, IDisposable
                 this.config.ServiceUuid,
                 this.config.WriteCharacteristicUuid,
                 bytes,
-                false,
+                this.writeWithResponse,
                 ct
             ).ConfigureAwait(false);
 

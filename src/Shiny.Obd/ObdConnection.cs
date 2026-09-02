@@ -49,29 +49,105 @@ public class ObdConnection : IObdConnection, IDisposable
     /// </summary>
     public ObdAdapterInfo? DetectedAdapter { get; private set; }
 
+    /// <summary>
+    /// The ELM protocol number to pin on the next <see cref="Connect"/>, from an earlier session's
+    /// <see cref="NegotiatedProtocol"/>. Null lets the adapter search for one.
+    /// </summary>
+    /// <remarks>
+    /// Persist this between sessions and hand it back: the search it skips is the single most expensive
+    /// part of establishing a session, and it is otherwise paid again on every reconnect. It is ignored
+    /// when an explicit profile was supplied — that profile carries its own.
+    /// </remarks>
+    public string? Protocol { get; set; }
+
+    /// <summary>
+    /// The protocol the adapter reports it is actually on, read once initialization is complete. Null
+    /// when the adapter has not settled on one — which is what an unpinned adapter says until something
+    /// has needed the bus.
+    /// </summary>
+    public string? NegotiatedProtocol { get; private set; }
+
     public async Task Connect(CancellationToken ct = default)
     {
         await this.transport.Connect(ct).ConfigureAwait(false);
+        this.NegotiatedProtocol = null;
 
         if (this.profile != null)
         {
             await this.profile.Initialize(this, ct).ConfigureAwait(false);
-            return;
+        }
+        else
+        {
+            // Auto-detect with ATI alone. ATI answers whatever state the chip is in, and the profile's
+            // own ATZ is a few commands away — resetting here as well was a second full adapter reset
+            // and a second one-second settle on every connect, for nothing.
+            var atiResponse = await this.SendRaw("ATI", ct).ConfigureAwait(false);
+            this.DetectedAdapter = ParseAdapterInfo(atiResponse);
+
+            var resolved = this.DetectedAdapter.Type switch
+            {
+                ObdAdapterType.ObdLink => (IObdAdapterProfile)new ObdLinkAdapterProfile(this.Protocol),
+                _ => new Elm327AdapterProfile(this.Protocol)
+            };
+            await resolved.Initialize(this, ct).ConfigureAwait(false);
         }
 
-        // Auto-detect: reset first, then probe with ATI
-        await this.SendRaw("ATZ", ct).ConfigureAwait(false);
-        await Task.Delay(1000, ct).ConfigureAwait(false);
+        await this.RefreshNegotiatedProtocol(ct).ConfigureAwait(false);
+    }
 
-        var atiResponse = await this.SendRaw("ATI", ct).ConfigureAwait(false);
-        this.DetectedAdapter = ParseAdapterInfo(atiResponse);
+    /// <summary>
+    /// Asks the adapter which protocol it ended up on, so the caller can hand it back next time, and
+    /// updates <see cref="NegotiatedProtocol"/> with the answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ⚠️ Worth calling again once real traffic has been through. <see cref="Connect"/> asks as it
+    /// finishes, but an adapter left to search (no <see cref="Protocol"/> pinned) has not chosen
+    /// anything at that point — <c>ATSP0</c> defers the choice to the first command that needs the
+    /// bus — so it answers "still searching" and this reports null. A caller that reads a PID and then
+    /// asks again gets the real number, which is the one worth persisting.
+    /// </para>
+    /// ATDPN answers a bare digit for a protocol that was set explicitly and an <c>A</c>-prefixed one
+    /// for a protocol it found by searching. Both name the same protocol, so the prefix is dropped —
+    /// but only from a two-character reply, because <c>A</c> is itself a protocol number (J1939) and
+    /// stripping it off a bare "A" would leave nothing. <c>0</c> means it has not determined one yet;
+    /// there is nothing to remember, so that reports null rather than a number that would pin the
+    /// search itself.
+    /// </remarks>
+    public async Task<string?> RefreshNegotiatedProtocol(CancellationToken ct = default)
+    {
+        this.NegotiatedProtocol = await this.ReadProtocolNumber(ct).ConfigureAwait(false);
+        return this.NegotiatedProtocol;
+    }
 
-        var resolved = this.DetectedAdapter.Type switch
+    async Task<string?> ReadProtocolNumber(CancellationToken ct)
+    {
+        try
         {
-            ObdAdapterType.ObdLink => (IObdAdapterProfile)new ObdLinkAdapterProfile(),
-            _ => new Elm327AdapterProfile()
-        };
-        await resolved.Initialize(this, ct).ConfigureAwait(false);
+            var raw = await this.SendRaw("ATDPN", ct).ConfigureAwait(false);
+
+            // Last non-empty line: an adapter still echoing prints the command back first
+            var lines = raw.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0)
+                return null;
+
+            var number = lines[lines.Length - 1].Trim();
+            if (number.Length == 2 && (number[0] == 'A' || number[0] == 'a'))
+                number = number.Substring(1);
+
+            return number.Length == 1 && number != "0" && Uri.IsHexDigit(number[0])
+                ? number.ToUpperInvariant()
+                : null;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // A working session is not worth failing over an adapter that won't say what it is doing
+            return null;
+        }
     }
 
     public Task Disconnect() => this.transport.Disconnect();
