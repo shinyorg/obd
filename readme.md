@@ -631,15 +631,35 @@ ATE0   → Echo off
 ATL0   → Linefeed off
 ATS1   → Spaces on
 ATH0   → Headers off
-ATSP0  → Auto protocol
+ATSP0  → Auto protocol (or ATSPn when a protocol is pinned)
 ```
 
 **ObdLinkAdapterProfile** — Extends ELM327 with STN-specific optimizations:
 ```
+STFAC  → Reset to factory defaults (first: it would otherwise wipe what follows)
 (all ELM327 commands above)
-STFAC  → Reset to factory defaults
 ATCAF1 → CAN auto formatting on
 ```
+
+`ATZ` is sent once per connect, by the profile — auto-detection probes with `ATI` alone.
+
+### Protocol Pinning
+
+`ATSP0` defers the protocol choice to the first command that needs the bus, and that command pays the
+whole ELM search — seconds of it, and `ATZ` discards the result, so an unpinned adapter pays it again
+on every reconnect. Save the number a session settled on and hand it back:
+
+```csharp
+var connection = new ObdConnection(transport) { Protocol = savedProtocol };  // null on a first run
+await connection.Connect();
+
+// Ask once something has needed the bus — ATSP0 has chosen nothing before that
+await connection.Execute(new SupportedPidsCommand(0x00));
+savedProtocol = await connection.RefreshNegotiatedProtocol();   // "6"
+```
+
+A stale pin is safe: it is verified with mode 01 during initialization and dropped for a search when
+nothing answers.
 
 ### Custom Profiles
 
@@ -731,9 +751,26 @@ var config = new BleObdConfiguration
     DeviceNameFilter = "OBDLink",
 
     // Timeout for a single command response
-    CommandTimeout = TimeSpan.FromSeconds(10)
+    CommandTimeout = TimeSpan.FromSeconds(10),
+
+    // How long to wait for the BLE link itself, before any OBD initialization
+    ConnectTimeout = TimeSpan.FromSeconds(30),
+
+    // Hand the platform a standing reconnect. Off by default.
+    //
+    // On Android this selects ConnectGatt(autoConnect: true) — the background connection path, where
+    // the controller only attempts during widely spaced scan windows. That is tens of seconds for an
+    // adapter a direct connect reaches in a few hundred milliseconds, and it arms the platform's own
+    // reconnect, which races a caller that supervises the session itself. Leave it off unless nothing
+    // in your app is doing that job.
+    AutoConnect = false
 };
 ```
+
+The transport reads the write characteristic's advertised properties on connect and writes with or
+without a GATT response accordingly — a clone whose TX characteristic is write-with-response only
+silently drops a write-without-response, and the caller then waits out the full `CommandTimeout` for a
+reply that was never coming.
 
 ### Using a Discovered Device
 
