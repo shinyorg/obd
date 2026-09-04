@@ -40,11 +40,24 @@ public class BleObdDeviceScanner : IObdDeviceScanner
         // obvious optimization, but iOS matches that filter against the *advertisement* only, and most
         // ELM327 clones don't advertise their service - it only shows up after connecting. A filtered
         // scan would find nothing at all on iPhone.
+        //
+        // Nameless advertisements are surfaced too, and dropping them was a real bug. The name here is
+        // `Peripheral.Name ?? AdvertisementData.LocalName`, and on iOS `CBPeripheral.Name` stays null
+        // until CoreBluetooth has connected to that peripheral once and cached it - so a requirement for
+        // a name is in practice a *first-connection-of-the-process* filter on that platform. An adapter
+        // advertising from the OBD port was invisible on exactly the attempt that mattered, and became
+        // visible only once a connection had already succeeded by some other route. Plenty of ELM327
+        // clones also carry no local name in the advertisement at all and only ever report one after
+        // connecting. Callers that identify an adapter by its peripheral id - the only key always
+        // present - could not do so through this scanner.
+        //
+        // An explicit DeviceNameFilter still excludes them, because Matches cannot match a name that
+        // isn't there. That is the caller asking for a name; requiring one unconditionally was not.
         this.bleManager
             .Scan()
             .Select(BleScanCandidate.From)
             .Do(this.LogCandidate)
-            .Where(x => !string.IsNullOrEmpty(x.Name) && x.Matches(this.config.DeviceNameFilter))
+            .Where(x => x.Matches(this.config.DeviceNameFilter))
             .Subscribe(
                 x =>
                 {
@@ -52,7 +65,10 @@ public class BleObdDeviceScanner : IObdDeviceScanner
                     if (seen.Add(id))
                     {
                         var device = new ObdDiscoveredDevice(
-                            x.Name!,
+                            // Empty rather than null: ObdDiscoveredDevice.Name is non-nullable, and a
+                            // picker showing a blank row the user can still select by signal strength is
+                            // worth more than an adapter it never lists at all.
+                            x.Name ?? string.Empty,
                             id,
                             x.Peripheral
                         );

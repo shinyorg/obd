@@ -700,9 +700,11 @@ await scanner.Scan(device =>
 }, cts.Token);
 ```
 
-`DeviceNameFilter` is a case-insensitive substring match against the peripheral's name, falling back to the local name in the advertisement when the peripheral reports none — which is the normal case on iOS while scanning.
+`DeviceNameFilter` is a case-insensitive substring match against the peripheral's name, falling back to the local name in the advertisement when the peripheral reports none — which is the normal case on iOS while scanning. Leave it null and everything is surfaced.
 
 The scan is not filtered by `ServiceUuid`. iOS matches a scan filter against the advertisement only, and most ELM327 clones don't advertise their service, so a filtered scan would find nothing there.
+
+**Adapters that advertise no name at all are surfaced too**, with `Name` as an empty string — identify those by `Id` (the BLE peripheral UUID), which is always present. This matters most on iOS: `CBPeripheral.Name` is null until CoreBluetooth has connected to that peripheral once and cached it, so requiring a name would hide an adapter on the *first* connection of a process and reveal it only afterwards. If you are reconnecting to a remembered adapter, match on `Id` rather than `Name`. Set `DeviceNameFilter` when you do want unnamed devices excluded — a filter cannot match a name that isn't there.
 
 Every advertisement seen is logged at `Debug` level before filtering — name, `Peripheral.Name`, id, RSSI and advertised service UUIDs — so an adapter that never reaches your callback can still be identified:
 
