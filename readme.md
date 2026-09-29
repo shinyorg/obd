@@ -774,6 +774,10 @@ without a GATT response accordingly — a clone whose TX characteristic is write
 silently drops a write-without-response, and the caller then waits out the full `CommandTimeout` for a
 reply that was never coming.
 
+`Connect` also waits for the adapter to confirm notifications are on before returning. Subscribing only
+requests them, and a first command written without response can overtake that request — the reply is
+then lost and the first command (`ATI`) times out.
+
 ### Using a Discovered Device
 
 Use `BleObdDeviceScanner` to find adapters, then pass the selected device directly:

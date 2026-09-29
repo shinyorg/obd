@@ -104,12 +104,61 @@ public class BleObdTransport : IObdTransport, IDisposable
 
         this.writeWithResponse = await this.ResolveWriteMode(ct).ConfigureAwait(false);
 
+        // ⚠️ Armed before the subscribe, and awaited before Connect returns. NotifyCharacteristic hands
+        // back as soon as it is subscribed — the CCCD write that actually turns notifications on goes
+        // out afterwards and completes whenever the peripheral acknowledges it. The first command is
+        // written the moment Connect returns, and a write-without-response is not queued behind that
+        // CCCD request, so it can overtake it: the adapter answers before notifications are live, the
+        // reply is dropped, and the caller sits out the full CommandTimeout on ATI. It lost that race
+        // every time on iOS against a link the OS had kept up (state restoration), where the connect is
+        // instant and there is no discovery latency to hide it — the only cure was unplugging the
+        // adapter to drop the link.
+        var notifying = this.peripheral
+            .WhenCharacteristicSubscriptionChanged(this.config.ServiceUuid, this.config.ReadCharacteristicUuid)
+            .Where(x => x.IsNotifying && SameUuid(x.Uuid, this.config.ReadCharacteristicUuid))
+            .Take(1)
+            .Timeout(this.config.CommandTimeout)
+            .ToTask(ct);
+
         this.notificationSub = this.peripheral
             .NotifyCharacteristic(
                 this.config.ServiceUuid,
                 this.config.ReadCharacteristicUuid)
-            .Subscribe(this.OnNotificationReceived);
+            .Subscribe(this.OnNotificationReceived, this.OnNotificationFailed);
+
+        try
+        {
+            await notifying.ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            throw new ObdException(
+                $"The OBD adapter did not enable notifications on {this.config.ReadCharacteristicUuid} within {this.config.CommandTimeout.TotalSeconds:0}s"
+            );
+        }
     }
+
+    /// <summary>
+    /// Compares characteristic UUIDs whichever form each is in. The configuration usually carries the
+    /// 16-bit short form ("FFF1"), while Android reports the full 128-bit one expanded onto the
+    /// Bluetooth base UUID.
+    /// </summary>
+    static bool SameUuid(string reported, string configured)
+        => String.Equals(Expand(reported), Expand(configured), StringComparison.OrdinalIgnoreCase);
+
+    static string Expand(string uuid) => uuid.Length switch
+    {
+        4 => $"0000{uuid}-0000-1000-8000-00805f9b34fb",
+        8 => $"{uuid}-0000-1000-8000-00805f9b34fb",
+        _ => uuid
+    };
+
+    /// <summary>
+    /// The notification stream failing — the link going, most often. Nothing more will be answered, so
+    /// fail whoever is waiting now; left unobserved it would also surface as an unhandled Rx error.
+    /// </summary>
+    void OnNotificationFailed(Exception ex)
+        => this.EndExchange(new ObdException("The OBD adapter's notification stream failed", ex));
 
     /// <summary>
     /// Whether commands have to be written with a GATT response, from what the adapter's write
