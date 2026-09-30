@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-        <ShinyVersion>5.5.0</ShinyVersion>
+        <ShinyVersion>5.8.0</ShinyVersion>
     </PropertyGroup>
     <ItemGroup>
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11"/>
@@ -14,7 +14,7 @@
         <PackageVersion Include="Shiny.BluetoothLE.Hosting" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Hosting.Maui" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Net.Discovery" Version="$(ShinyVersion)"/>
-        <PackageVersion Include="Shiny.Maui.Shell" Version="6.3.2"/>
+        <PackageVersion Include="Shiny.Maui.Shell" Version="7.0.1"/>
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2"/>
         <PackageVersion Include="coverlet.collector" Version="10.0.1"/>
         <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
