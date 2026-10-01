@@ -34,6 +34,18 @@ public class BleObdConfiguration
     public TimeSpan CommandTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// How long the next command waits for an adapter still answering one that was given up on — timed out,
+    /// or cancelled by the caller — before writing anyway.
+    /// </summary>
+    /// <remarks>
+    /// An ELM327 abandons whatever it is working on when anything arrives, answers <c>STOPPED</c>, and that
+    /// reply lands on the command that interrupted it. So after an abandoned command the next one waits for
+    /// the adapter's late <c>&gt;</c> prompt, up to this long. An adapter that never prints one is wedged, and
+    /// the wait ends here rather than moving the hang to the next command.
+    /// </remarks>
+    public TimeSpan AbandonedReplyGrace { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// Whether to hand the platform a standing reconnect for the adapter. Off by default.
     /// </summary>
     /// <remarks>

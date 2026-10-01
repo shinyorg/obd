@@ -11,6 +11,7 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 - **Command-object pattern** — OBD commands are objects, not methods. Pass built-in commands or create your own for custom PIDs.
 - **Generic return types** — each command declares its return type (`int`, `double`, `string`, `TimeSpan`, etc.) with compile-time safety.
 - **Pluggable transports** — `IObdTransport` abstracts the communication channel. BLE, WiFi and serial (USB/UART) ship in the box; add anything else with one interface.
+- **A timed-out command never knocks out the next one** — over BLE, the next write waits for the adapter's late `>` prompt (up to `AbandonedReplyGrace`) instead of interrupting an ELM327 that is still answering, which would make it reply `STOPPED` to the new command.
 - **WiFi works everywhere** — a WiFi adapter is a plain TCP socket, so `Shiny.Obd.Wifi` behaves identically on iOS, Android, Windows, Linux and macOS. No platform package, no pairing, no BLE stack.
 - **Adapter auto-detection** — detects ELM327 vs OBDLink (STN) adapters via ATI and runs the appropriate initialization sequence.
 - **Adapter profiles** — `IObdAdapterProfile` lets you define custom init sequences. Built-in profiles for ELM327 and OBDLink.

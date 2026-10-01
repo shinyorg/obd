@@ -34,6 +34,9 @@ public class BleObdTransport : IObdTransport, IDisposable
     IDisposable? notificationSub;
     TaskCompletionSource<string>? responseTcs;
 
+    /// <summary>Closed while a command the caller gave up on may still be answering — see <see cref="PromptGate"/>.</summary>
+    readonly PromptGate promptGate = new();
+
     /// <summary>
     /// Resolved from the write characteristic's own properties on connect — see
     /// <see cref="ResolveWriteMode"/>.
@@ -210,6 +213,7 @@ public class BleObdTransport : IObdTransport, IDisposable
         // A disconnect is an answer. Fail anything mid-exchange now rather than leaving the caller to
         // sit out the full command timeout for a reply that can no longer arrive.
         this.EndExchange(new ObdException("The OBD connection was closed"));
+        this.promptGate.Open();
 
         this.peripheral?.CancelConnection();
         return Task.CompletedTask;
@@ -221,9 +225,15 @@ public class BleObdTransport : IObdTransport, IDisposable
             throw new ObdException("Not connected to OBD adapter");
 
         await this.sendLock.WaitAsync(ct).ConfigureAwait(false);
+        var written = false;
+        TaskCompletionSource<string>? tcs = null;
         try
         {
-            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            // ⚠️ The last command may have been given up on while the adapter was still working on it. Writing
+            // now would interrupt it — the adapter answers STOPPED, and that reply lands on this command.
+            await this.promptGate.WaitAsync(this.config.AbandonedReplyGrace, ct).ConfigureAwait(false);
+
+            tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (this.exchangeLock)
             {
                 this.responseBuffer.Clear();
@@ -238,6 +248,7 @@ public class BleObdTransport : IObdTransport, IDisposable
                 this.writeWithResponse,
                 ct
             ).ConfigureAwait(false);
+            written = true;
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(this.config.CommandTimeout);
@@ -261,7 +272,18 @@ public class BleObdTransport : IObdTransport, IDisposable
             // stops a late reply to a timed-out command from completing the *next* command's wait
             // with the previous command's data — one timeout would otherwise put every response
             // after it off by one, and the session would never recover on its own.
-            this.EndExchange();
+            // Written and not answered: the adapter is still working on it, so the next write waits for its
+            // prompt. One whose write never completed never reached the adapter and leaves nothing to wait out.
+            // Closed under the same lock the notification callback takes, so a late prompt arriving right
+            // now either completed this exchange or finds the gate already closed — never neither.
+            var abandoned = written && tcs?.Task.IsCompletedSuccessfully != true && this.IsConnected;
+            lock (this.exchangeLock)
+            {
+                this.EndExchange();
+                if (abandoned)
+                    this.promptGate.Abandoned();
+            }
+
             this.sendLock.Release();
         }
     }
@@ -293,9 +315,13 @@ public class BleObdTransport : IObdTransport, IDisposable
         lock (this.exchangeLock)
         {
             // Nothing is waiting — this is a late reply to a command that already timed out or a
-            // connection that has gone. Dropping it keeps it out of the next command's buffer.
+            // connection that has gone. Dropping it keeps it out of the next command's buffer, and its
+            // prompt is what tells the next command the adapter is free.
             if (this.responseTcs == null)
+            {
+                this.promptGate.Unclaimed(text);
                 return;
+            }
 
             this.responseBuffer.Append(text);
 
