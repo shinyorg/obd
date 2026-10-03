@@ -27,6 +27,38 @@ public class OdometerCommandTests
     }
 
     [Fact]
+    public void Parse_MergesEveryEcuThatAnswered()
+    {
+        // Engine then transmission, headers off: the connection hands both lines over as one run
+        var pids = new SupportedPidsCommand(0x00).Parse(
+            [0x41, 0x00, 0x80, 0x00, 0x00, 0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x01]
+        );
+
+        Assert.Equal([(byte)0x01, 0x20], pids);
+    }
+
+    [Fact]
+    public void Parse_IsTheSameWhicheverEcuAnswersFirst()
+    {
+        byte[] engine = [0x41, 0x00, 0xBE, 0x3E, 0xB8, 0x13];
+        byte[] transmission = [0x41, 0x00, 0x80, 0x18, 0x00, 0x00];
+
+        var engineFirst = new SupportedPidsCommand(0x00).Parse([.. engine, .. transmission]);
+        var transmissionFirst = new SupportedPidsCommand(0x00).Parse([.. transmission, .. engine]);
+
+        Assert.Equal(engineFirst, transmissionFirst);
+        Assert.Contains((byte)0x20, transmissionFirst);   // the engine's "next block" bit survives
+    }
+
+    [Fact]
+    public void Parse_IgnoresTrailingBytesThatAreNotAnotherMask()
+    {
+        var pids = new SupportedPidsCommand(0x00).Parse([0x41, 0x00, 0x80, 0x00, 0x00, 0x00, 0x41, 0x20, 0xFF, 0xFF, 0xFF, 0xFF]);
+
+        Assert.Equal([(byte)0x01], pids);
+    }
+
+    [Fact]
     public void Parse_ShortResponse_Throws()
         => Assert.Throws<ObdException>(() => command.Parse([0x41, 0xA6, 0x00, 0x06]));
 }

@@ -319,6 +319,10 @@ if (supported.Contains(0xA6))
     odometerKm = await connection.Execute(StandardCommands.Odometer);
 ```
 
+Every ECU on the bus answers a supported-PID request — usually the engine and the transmission, in
+no fixed order. `SupportedPidsCommand` merges their masks, so the result is every PID *any* module
+answers and does not depend on which one replied first.
+
 An unsupported reading should surface to your users as *missing*, not as zero — the odometer PID is
 absent on most vehicles, and hybrid battery life is absent on every vehicle without a pack.
 
