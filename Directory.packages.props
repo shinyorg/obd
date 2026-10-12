@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-        <ShinyVersion>5.8.0</ShinyVersion>
+        <ShinyVersion>6.0.0</ShinyVersion>
     </PropertyGroup>
     <ItemGroup>
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11"/>
