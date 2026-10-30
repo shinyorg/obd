@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!--
+        Classic Bluetooth (BR/EDR, RFCOMM/SPP) on top of Shiny.Bluetooth. iOS and Mac Catalyst are
+        deliberately absent - Shiny.Bluetooth has no target there, because classic Bluetooth on Apple
+        mobile is ExternalAccessory and only reaches MFi accessories. Use Shiny.Obd.Ble there.
+
+        The plain net10.0 target serves Windows, macOS and Linux: the app references Shiny.Bluetooth (or
+        Shiny.Bluetooth.Linux) itself and its own platform assembly is what runs. Android is a target of
+        its own only so AddShinyObdBluetooth() can register the manager there.
+    -->
+    <PropertyGroup>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-android</TargetFrameworks>
+        <RootNamespace>Shiny.Obd.Bluetooth</RootNamespace>
+        <Description>Classic Bluetooth (RFCOMM/SPP) transport for Shiny.Obd using Shiny.Bluetooth - Android, Windows, macOS and Linux</Description>
+        <PackageTags>$(PackageTags) bluetooth-classic rfcomm spp</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Obd\Shiny.Obd.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Shiny.Obd.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
+        <PackageReference Include="Shiny.Bluetooth"/>
+    </ItemGroup>
+</Project>

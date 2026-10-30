@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Globalization;
 using Shiny;
 using Shiny.Obd;
+using Shiny.Bluetooth;
 using Shiny.Obd.Ble;
+using Shiny.Obd.Bluetooth;
 using Shiny.Obd.Commands;
 
 namespace Sample.Maui;
@@ -24,7 +26,11 @@ namespace Sample.Maui;
 /// </remarks>
 [ShellMap<DashboardPage>("dashboard")]
 public partial class DashboardViewModel(
-    BleObdConfiguration config
+    BleObdConfiguration config,
+    // Classic Bluetooth only exists on Android in this sample (Shiny.Bluetooth has no iOS target), so
+    // these resolve to null on iOS and every device there is a BLE one.
+    IBluetoothManager? classicManager = null,
+    BluetoothObdConfiguration? classicConfig = null
 ) : ObservableObject, IPageLifecycleAware, IDisposable
 {
     /// <summary>Shown in place of a reading the vehicle did not give us.</summary>
@@ -186,7 +192,10 @@ public partial class DashboardViewModel(
         try
         {
             this.Status = "Connecting...";
-            var transport = new BleObdTransport(this.Device, config);
+            // The scan list mixes both radios; the device's NativeDevice says which one found it.
+            IObdTransport transport = this.Device.NativeDevice is IBluetoothDevice && classicManager != null
+                ? new BluetoothObdTransport(classicManager, this.Device, classicConfig ?? new BluetoothObdConfiguration())
+                : new BleObdTransport(this.Device, config);
             this.connection = new ObdConnection(transport);
             await this.connection.Connect();
 

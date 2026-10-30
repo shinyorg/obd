@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Shiny.Obd.Emulator;
 using Shiny;
 using Shiny.Obd.Ble;
+using Shiny.Obd.Bluetooth;
 
 namespace Sample.Maui;
 
@@ -28,6 +29,16 @@ public static class MauiProgram
             ReadCharacteristicUuid = "FFF1",
             WriteCharacteristicUuid = "FFF2"
         });
+
+        // Classic Bluetooth (RFCOMM/SPP) adapters - the ELM327 v1.5 "Bluetooth" clones, OBDLink LX/MX+.
+        // Android only: Shiny.Bluetooth has no iOS target, because classic Bluetooth there is
+        // ExternalAccessory and reaches MFi accessories only. AddShinyObdBluetoothLE above already
+        // owns IObdDeviceScanner/IObdTransport (registration is TryAdd), so the classic scanner is
+        // registered by its concrete type and the Scan tab runs it alongside the BLE one.
+#if ANDROID
+        builder.Services.AddShinyObdBluetooth();
+        builder.Services.AddSingleton<BluetoothObdDeviceScanner>();
+#endif
 
         // ---- Adapter side: pretend to be one (Adapter / Values / Faults tabs) -------------------
         // The emulator answers the same UUIDs the client above scans for, so two devices running this

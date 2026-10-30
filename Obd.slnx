@@ -20,5 +20,8 @@
   <Project Path="src/Shiny.Obd.Serial/Shiny.Obd.Serial.csproj" />
   <Project Path="src/Shiny.Obd.Wifi/Shiny.Obd.Wifi.csproj" />
   <Project Path="tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/Shiny.Obd.Bluetooth/Shiny.Obd.Bluetooth.csproj" />
+  </Folder>
   <Project Path="samples/Sample.Maui/Sample.Maui.csproj" />
 </Solution>

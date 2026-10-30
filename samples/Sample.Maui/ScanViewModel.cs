@@ -1,13 +1,16 @@
 using System.Collections.ObjectModel;
 using Shiny;
 using Shiny.Obd;
+using Shiny.Obd.Bluetooth;
 
 namespace Sample.Maui;
 
 [ShellMap<ScanPage>(registerRoute: false)]
 public partial class ScanViewModel(
     IObdDeviceScanner scanner,
-    INavigator navigator
+    INavigator navigator,
+    // Android only - see MauiProgram. Null on iOS, where classic Bluetooth is not available.
+    BluetoothObdDeviceScanner? classicScanner = null
 ) : ObservableObject, IPageLifecycleAware
 {
     CancellationTokenSource? scanCts;
@@ -39,11 +42,15 @@ public partial class ScanViewModel(
         this.ScanButtonText = "Stop Scan";
         this.scanCts = new CancellationTokenSource();
 
-        _ = scanner.Scan(
-            device => MainThread.BeginInvokeOnMainThread(() => this.Devices.Add(device)),
-            this.scanCts.Token
-        );
+        _ = scanner.Scan(this.OnDeviceFound, this.scanCts.Token);
+
+        // Paired classic adapters show up immediately; unpaired ones as the inquiry hears them.
+        if (classicScanner != null)
+            _ = classicScanner.Scan(this.OnDeviceFound, this.scanCts.Token);
     }
+
+    void OnDeviceFound(ObdDiscoveredDevice device)
+        => MainThread.BeginInvokeOnMainThread(() => this.Devices.Add(device));
 
     void StopScan()
     {
