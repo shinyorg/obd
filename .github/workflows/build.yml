@@ -39,7 +39,7 @@ jobs:
       uses: actions/setup-dotnet@v6
       with:
           dotnet-version: '10.0.x'
-          workloads: maui-ios, maui-android
+          workloads: maui-ios, maui-android, maccatalyst, macos
       
     - name: Build
       run: dotnet build build.slnf /restore -m -property:Configuration=Release -property:PublicRelease=true
