@@ -1,0 +1,44 @@
+name: Feature Request
+description: You have an idea for an enhancement within Shiny.Obd
+title: "[Feature Request]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        New PIDs, commands, transports and adapter quirks are all welcome. For a new command, please include the mode/PID and the decoding formula (or a link to where it is documented). For an adapter quirk, include the adapter make/model and what `ATI` reports.
+
+        > ⭐ **Finding this library useful? Please give the repository a [Star](https://github.com/shinyorg/obd) - it's free and it's how the project gets seen.**
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component/NuGet
+      description: Where the feature would live
+      options:
+        - Core - commands, connection, adapter detection, VIN decoding (Shiny.Obd)
+        - BLE transport (Shiny.Obd.Ble / Shiny.Obd.Ble.Linux)
+        - Classic Bluetooth / SPP transport (Shiny.Obd.Bluetooth)
+        - Serial / USB transport (Shiny.Obd.Serial)
+        - WiFi / TCP transport (Shiny.Obd.Wifi)
+        - Adapter Emulator (Shiny.Obd.Emulator / Shiny.Obd.Emulator.Ble)
+        - New transport or package
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Summary
+      description: Your summary of the feature
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: API Changes
+      description: What the new or changed API would look like (e.g. a new `ObdCommand<T>`, configuration property or extension method)
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Intended Use Case
+    validations:
+      required: true

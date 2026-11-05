@@ -35,7 +35,8 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 | Package | Target | Description |
 |---------|--------|-------------|
 | `Shiny.Obd` | `net10.0` | Core library — commands, connection, transport abstraction |
-| `Shiny.Obd.Ble` | `net10.0` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
+| `Shiny.Obd.Ble` | `net10.0`, `-android`, `-ios`, `-maccatalyst`, `-macos`, `-windows` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
+| `Shiny.Obd.Ble.Linux` | `net10.0` | Linux (BlueZ) BLE registration — `AddShinyObdLinuxBluetoothLE()` via Shiny.BluetoothLE.Linux |
 | `Shiny.Obd.Bluetooth` | `net10.0`, `net10.0-android` | Classic Bluetooth (RFCOMM/SPP) transport using [Shiny.Bluetooth](https://github.com/shinyorg/shiny) — Android, Windows, macOS, Linux (not iOS) |
 | `Shiny.Obd.Serial` | `net10.0` | Serial (USB/UART) transport — Windows, Linux, macOS, Mac Catalyst |
 | `Shiny.Obd.Wifi` | `net10.0` | WiFi (TCP) transport — every platform, including iOS and Android |
@@ -52,6 +53,9 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 
 <!-- BLE transport -->
 <PackageReference Include="Shiny.Obd.Ble" />
+
+<!-- BLE on Linux (BlueZ) — use instead of registering Shiny.Obd.Ble yourself -->
+<PackageReference Include="Shiny.Obd.Ble.Linux" />
 
 <!-- Classic Bluetooth (RFCOMM/SPP) transport -->
 <PackageReference Include="Shiny.Obd.Bluetooth" />
@@ -84,19 +88,18 @@ one physical resource. Registration uses `TryAdd`, so calling more than one leav
 in place rather than silently swapping the transport; if you want a **fallback chain** across
 transports, construct them yourself instead of registering several.
 
-On iOS and Android `AddShinyObdBluetoothLE()` registers the BLE manager for you. **Everywhere else
-you also call `AddBluetoothLE()`** from your platform package — order does not matter:
+`AddShinyObdBluetoothLE()` also registers the Shiny.BluetoothLE manager for you on iOS, Android,
+Mac Catalyst, macOS, Windows and Blazor WebAssembly — there is no separate `AddBluetoothLE()` call to
+remember (calling it anyway is harmless). **On Linux, install `Shiny.Obd.Ble.Linux` instead** — the
+BlueZ manager ships in the separate `Shiny.BluetoothLE.Linux` package, and this one call registers it
+along with the OBD stack:
 
 ```csharp
-services.AddBluetoothLE();          // Shiny.BluetoothLE.Linux / .Blazor / .BluetoothLE
-services.AddShinyObdBluetoothLE();
+services.AddShinyObdLinuxBluetoothLE(); // Linux only — Shiny.Obd.Ble.Linux
 ```
 
-That split is a hard constraint, not an omission: `Shiny.BluetoothLE.Linux` and
-`Shiny.BluetoothLE.Blazor` both ship a `net10.0` assembly declaring
-`Shiny.AddBluetoothLE(IServiceCollection)`, so a package referencing both would make every call to it
-ambiguous (CS0121). Only the app knows which platform it is running on. Forget the call and you get a
-`ObdException` naming the exact package to add, rather than a bare DI resolution failure.
+Forget it and you get an `ObdException` naming the exact package to add, rather than a bare DI
+resolution failure.
 
 ### 2. Connect and query
 
@@ -743,14 +746,13 @@ Register BLE OBD services in one call:
 ```csharp
 using Shiny;
 
-builder.Services.AddBluetoothLE(); // Shiny BLE platform registration
 builder.Services.AddShinyObdBluetoothLE(new BleObdConfiguration
 {
     DeviceNameFilter = "OBD"
 });
 ```
 
-`AddShinyObdBluetoothLE` registers `BleObdConfiguration` and `IObdDeviceScanner` (`BleObdDeviceScanner`). You must also call `AddBluetoothLE()` for platform BLE support.
+`AddShinyObdBluetoothLE` registers the Shiny.BluetoothLE manager, `BleObdConfiguration`, `IObdDeviceScanner` (`BleObdDeviceScanner`), `IObdTransport` and `IObdConnection`. On Linux, use `AddShinyObdLinuxBluetoothLE()` from `Shiny.Obd.Ble.Linux` instead.
 ```
 
 ## BLE Transport

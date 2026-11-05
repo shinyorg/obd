@@ -1,0 +1,98 @@
+name: Bug Report
+description: You have found something wrong with Shiny.Obd
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for filing an issue. Please only file issues against the LATEST STABLE or LATEST BETA version of Shiny.Obd from NuGet (ALPHAs are not accepted for issues).
+        If you have questions, please post them in GitHub discussions. Please make sure the package you are reporting against supports the operating systems you select.
+        Documentation is at https://shinylib.net/client/obd
+
+        **Issues without a reproducible sample will be closed.** The [sample app](https://github.com/shinyorg/obd/tree/main/samples/Sample.Maui) and the adapter emulator (`Shiny.Obd.Emulator`) let you reproduce most problems without a vehicle - please try them first.
+
+        > ⭐ **Finding this library useful? Please give the repository a [Star](https://github.com/shinyorg/obd) - it's free and it's how the project gets seen.**
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component/NuGet
+      description: The package you are filing against. If it is not listed here it means there is no support for it.
+      options:
+        - Core - commands, connection, adapter detection, VIN decoding (Shiny.Obd)
+        - BLE transport (Shiny.Obd.Ble)
+        - BLE transport - Linux/BlueZ (Shiny.Obd.Ble.Linux)
+        - Classic Bluetooth / SPP transport (Shiny.Obd.Bluetooth)
+        - Serial / USB transport (Shiny.Obd.Serial)
+        - WiFi / TCP transport (Shiny.Obd.Wifi)
+        - Adapter Emulator (Shiny.Obd.Emulator)
+        - Adapter Emulator - BLE (Shiny.Obd.Emulator.Ble)
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: operatingsystems
+    attributes:
+      label: What operating system(s) are affected? Please make sure the platform is supported for the package you are filing against. Check https://shinylib.net/client/obd for supported platforms.
+      description: You may select more than one
+      options:
+      - label: iOS
+      - label: Mac Catalyst
+      - label: MacOS
+      - label: Android
+      - label: Windows
+      - label: Blazor
+      - label: Linux
+      - label: Server/Console (.NET)
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Version(s) of Operating Systems
+  - type: input
+    id: adapter
+    validations:
+      required: true
+    attributes:
+      label: OBD Adapter
+      description: Make/model of the adapter and what `ATI` reports, if known. Say if you are using the emulator.
+      placeholder: "e.g. OBDLink MX+ (STN2255), Vgate iCar Pro BLE (ELM327 v2.3), generic ELM327 v1.5 clone, Shiny.Obd.Emulator"
+  - type: input
+    id: vehicle
+    attributes:
+      label: Vehicle
+      description: Make, model, year and OBD protocol if known. Leave blank if the problem happens before talking to a vehicle (scanning, connecting, registration).
+      placeholder: "e.g. 2018 Honda Civic, ISO 15765-4 CAN 11/500"
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: exception
+    attributes:
+      label: Exception or Log output
+      description: Please copy and paste any relevant log output. If a BLE adapter is not showing up in a scan, enable Debug-level logging - BleObdDeviceScanner logs every advertisement it sees. For adapter/protocol problems, include the raw command and response (e.g. what `Send("0100")` returned).
+      render: shell
+  - type: textarea
+    id: codesample
+    attributes:
+      label: Code Sample
+      description: Please include a GitHub repo with your reproducible sample
+    validations:
+      required: true

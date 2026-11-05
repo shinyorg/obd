@@ -12,10 +12,12 @@
         <PackageVersion Include="System.IO.Ports" Version="10.0.10"/>
         <PackageVersion Include="Shiny.Bluetooth" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.BluetoothLE" Version="$(ShinyVersion)"/>
+        <PackageVersion Include="Shiny.BluetoothLE.Linux" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.BluetoothLE.Hosting" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Hosting.Maui" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Net.Discovery" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Maui.Shell" Version="7.0.1"/>
+        <PackageVersion Include="Shiny.Maui.Controls" Version="2.3.0-beta-0001"/>
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2"/>
         <PackageVersion Include="coverlet.collector" Version="10.0.1"/>
         <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>

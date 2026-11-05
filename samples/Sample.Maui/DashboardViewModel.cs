@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
 using Shiny;
 using Shiny.Obd;
 using Shiny.Bluetooth;
@@ -11,8 +10,8 @@ using Shiny.Obd.Commands;
 namespace Sample.Maui;
 
 /// <summary>
-/// The home screen. The top of it is the gauge cluster - the six readings polled continuously - and
-/// below that is every command <c>Shiny.Obd</c> can issue, run on demand from the Read button.
+/// The home screen. The top of it is the gauge cluster - up to <see cref="GaugeCatalog.MaxSelected"/>
+/// readings, picked from <see cref="GaugeCatalog"/> and polled continuously - and below that is every command <c>Shiny.Obd</c> can issue, run on demand from the Read button.
 /// </summary>
 /// <remarks>
 /// The gauges and the sweep share one connection, so the poll loop stands down while a sweep is
@@ -33,10 +32,9 @@ public partial class DashboardViewModel(
     BluetoothObdConfiguration? classicConfig = null
 ) : ObservableObject, IPageLifecycleAware, IDisposable
 {
-    /// <summary>Shown in place of a reading the vehicle did not give us.</summary>
-    const string NoReading = "--";
-
     static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
+
+    const string GaugesPreferenceKey = "dashboard.gauges";
 
     /// <summary>Display and execution order for the sweep. The masks have to run before anything gates on them.</summary>
     static readonly string[] GroupOrder =
@@ -73,15 +71,15 @@ public partial class DashboardViewModel(
     [ObservableProperty] string adapterInfo = "--";
 
     // ---- Gauges -------------------------------------------------------------------------------
-    // Strings rather than numbers: a PID the vehicle will not answer has to read as absent, and a
-    // numeric property can only fall back to zero - which shows as a real measurement.
 
-    [ObservableProperty] string speed = NoReading;
-    [ObservableProperty] string rpm = NoReading;
-    [ObservableProperty] string coolantTemp = NoReading;
-    [ObservableProperty] string throttle = NoReading;
-    [ObservableProperty] string fuelLevel = NoReading;
-    [ObservableProperty] string engineLoad = NoReading;
+    /// <summary>The dials on screen, in the order they were picked.</summary>
+    public ObservableCollection<GaugeTile> Gauges { get; } = new();
+
+    /// <summary>Every dial the picker offers, in catalog order.</summary>
+    public IReadOnlyList<GaugeOption> GaugeOptions { get; } = [.. GaugeCatalog.All.Select(x => new GaugeOption(x))];
+
+    [ObservableProperty] bool isPickingGauges;
+    [ObservableProperty] string gaugePickerText = "";
 
     // ---- Sweep --------------------------------------------------------------------------------
 
@@ -122,9 +120,14 @@ public partial class DashboardViewModel(
 
     partial void OnSearchChanged(string value) => this.ApplyFilter();
 
+    partial void OnIsPickingGaugesChanged(bool value) => this.UpdateGaugePicker();
+
     public void OnAppearing()
     {
         this.DeviceName = this.Device?.Name ?? "Unknown";
+        if (this.Gauges.Count == 0)
+            this.LoadGauges();
+
         this.ApplyFilter();
         _ = this.ConnectToDevice();
     }
@@ -181,6 +184,44 @@ public partial class DashboardViewModel(
         {
             this.ReadStatus = $"Clear failed: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    void ToggleGaugePicker() => this.IsPickingGauges = !this.IsPickingGauges;
+
+    /// <summary>
+    /// Adds a dial to the end of the cluster or takes it off. The poll loop reads <see cref="Gauges"/>
+    /// fresh each cycle, so the change shows on the next update without reconnecting.
+    /// </summary>
+    [RelayCommand]
+    void ToggleGauge(GaugeOption option)
+    {
+        if (option.IsSelected)
+        {
+            // One dial at least - an empty cluster would leave the poll loop with nothing to ask.
+            if (this.Gauges.Count <= 1)
+                return;
+
+            var tile = this.Gauges.First(x => x.Definition.Key == option.Definition.Key);
+            this.Gauges.Remove(tile);
+        }
+        else
+        {
+            if (this.Gauges.Count >= GaugeCatalog.MaxSelected)
+                return;
+
+            this.Gauges.Add(new GaugeTile(option.Definition));
+        }
+
+        this.SaveGauges();
+        this.UpdateGaugePicker();
+    }
+
+    [RelayCommand]
+    void ResetGauges()
+    {
+        Preferences.Default.Remove(GaugesPreferenceKey);
+        this.LoadGauges();
     }
 
     // ---- Connection ---------------------------------------------------------------------------
@@ -262,12 +303,9 @@ public partial class DashboardViewModel(
     {
         this.gaugeFaults.Clear();
 
-        this.Speed = Show(await this.Gauge("Speed", StandardCommands.VehicleSpeed, ct), "0");
-        this.Rpm = Show(await this.Gauge("RPM", StandardCommands.EngineRpm, ct), "0");
-        this.CoolantTemp = Show(await this.Gauge("Coolant", StandardCommands.CoolantTemperature, ct), "0");
-        this.Throttle = Show(await this.Gauge("Throttle", StandardCommands.ThrottlePosition, ct), "0.0");
-        this.FuelLevel = Show(await this.Gauge("Fuel level", StandardCommands.FuelLevel, ct), "0.0");
-        this.EngineLoad = Show(await this.Gauge("Engine load", StandardCommands.CalculatedEngineLoad, ct), "0.0");
+        // A snapshot: the picker can change the collection while a read is awaiting the adapter.
+        foreach (var tile in this.Gauges.ToArray())
+            await this.ReadGauge(tile, ct);
 
         this.Status = this.gaugeFaults.Count == 0
             ? $"Connected — last update {DateTime.Now:HH:mm:ss}"
@@ -275,7 +313,7 @@ public partial class DashboardViewModel(
     }
 
     /// <summary>
-    /// Reads one gauge, and answers null rather than throwing when the vehicle will not give it up.
+    /// Reads one gauge, and marks it unanswered rather than throwing when the vehicle will not give it up.
     /// </summary>
     /// <remarks>
     /// Each tile gets its own try/catch on purpose. One try around the whole cycle meant the first PID
@@ -283,11 +321,12 @@ public partial class DashboardViewModel(
     /// a busy bus - aborted the cycle, so every reading after it in the list stayed at its default
     /// forever. That looks exactly like four broken gauges rather than one unanswered PID.
     /// </remarks>
-    async Task<T?> Gauge<T>(string name, IObdCommand<T> command, CancellationToken ct) where T : struct
+    async Task ReadGauge(GaugeTile tile, CancellationToken ct)
     {
         try
         {
-            return await this.connection!.Execute(command, ct);
+            tile.Value = await tile.Definition.Read(this.connection!, ct);
+            tile.HasReading = true;
         }
         catch (OperationCanceledException)
         {
@@ -295,22 +334,58 @@ public partial class DashboardViewModel(
         }
         catch (Exception ex)
         {
-            this.gaugeFaults.Add($"{name}: {ex.Message}");
-            return null;
+            tile.HasReading = false;
+            this.gaugeFaults.Add($"{tile.Definition.Title}: {ex.Message}");
         }
     }
 
-    static string Show<T>(T? value, string format) where T : struct, IFormattable
-        => value?.ToString(format, CultureInfo.CurrentCulture) ?? NoReading;
-
     void ClearGauges()
     {
-        this.Speed = NoReading;
-        this.Rpm = NoReading;
-        this.CoolantTemp = NoReading;
-        this.Throttle = NoReading;
-        this.FuelLevel = NoReading;
-        this.EngineLoad = NoReading;
+        foreach (var tile in this.Gauges)
+            tile.Clear();
+    }
+
+    /// <summary>
+    /// Restores the last selection. Keys that are no longer in the catalog are dropped, and an empty
+    /// or unreadable preference falls back to the defaults.
+    /// </summary>
+    void LoadGauges()
+    {
+        var saved = Preferences.Default.Get(GaugesPreferenceKey, "");
+        var keys = saved.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var definitions = keys
+            .Select(GaugeCatalog.Find)
+            .OfType<GaugeDefinition>()
+            .DistinctBy(x => x.Key)
+            .Take(GaugeCatalog.MaxSelected)
+            .ToList();
+
+        if (definitions.Count == 0)
+            definitions = [.. GaugeCatalog.DefaultKeys.Select(GaugeCatalog.Find).OfType<GaugeDefinition>()];
+
+        this.Gauges.Clear();
+        foreach (var definition in definitions)
+            this.Gauges.Add(new GaugeTile(definition));
+
+        this.UpdateGaugePicker();
+    }
+
+    void SaveGauges()
+        => Preferences.Default.Set(GaugesPreferenceKey, String.Join(",", this.Gauges.Select(x => x.Definition.Key)));
+
+    void UpdateGaugePicker()
+    {
+        var full = this.Gauges.Count >= GaugeCatalog.MaxSelected;
+        foreach (var option in this.GaugeOptions)
+        {
+            option.IsSelected = this.Gauges.Any(x => x.Definition.Key == option.Definition.Key);
+            option.CanSelect = option.IsSelected || !full;
+        }
+
+        this.GaugePickerText = this.IsPickingGauges
+            ? $"Done ({this.Gauges.Count}/{GaugeCatalog.MaxSelected})"
+            : $"Choose gauges ({this.Gauges.Count}/{GaugeCatalog.MaxSelected})";
     }
 
     // ---- Sweep --------------------------------------------------------------------------------

@@ -46,6 +46,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Condition="'$(Configuration)' == 'Debug'"/>
         <PackageReference Include="Shiny.Hosting.Maui"/>
         <PackageReference Include="Shiny.Maui.Shell"/>
+        <PackageReference Include="Shiny.Maui.Controls"/>
         <PackageReference Include="Shiny.BluetoothLE.Hosting"/>
         <PackageReference Include="Shiny.Net.Discovery"/>
         <PackageReference Include="Microsoft.Maui.Controls"/>

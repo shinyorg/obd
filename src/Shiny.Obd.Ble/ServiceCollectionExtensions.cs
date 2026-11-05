@@ -10,25 +10,24 @@ namespace Shiny;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the BLE OBD transport, device scanner and configuration.
+    /// Registers the BLE OBD transport, device scanner and configuration — and the Shiny.BluetoothLE
+    /// manager underneath them.
     /// </summary>
     /// <remarks>
     /// Works on every platform Shiny.BluetoothLE supports — iOS, Android, Mac Catalyst, macOS,
     /// Windows, Linux (BlueZ) and Blazor WebAssembly (Web Bluetooth).
     ///
     /// <para>
-    /// On iOS and Android the BLE manager is registered for you. **Everywhere else you must call
-    /// <c>services.AddBluetoothLE()</c> yourself**, from whichever platform package you installed:
-    /// <c>Shiny.BluetoothLE.Linux</c>, <c>Shiny.BluetoothLE.Blazor</c>, or <c>Shiny.BluetoothLE</c>
-    /// on a Windows/Apple head. This library cannot do it for you there, and the reason is a hard
-    /// constraint rather than an omission: Linux and Blazor both ship a <c>net10.0</c> assembly and
-    /// both declare <c>Shiny.AddBluetoothLE(IServiceCollection)</c>, so a package referencing both
-    /// would make every call to it ambiguous (CS0121). Only the app knows which one it is running on.
+    /// This calls Shiny.BluetoothLE's <c>services.AddBluetoothLE()</c> for you, so on iOS, Android,
+    /// Mac Catalyst, macOS, Windows and Blazor WebAssembly there is nothing else to register.
+    /// <c>AddBluetoothLE()</c> is idempotent, so an app that also calls it itself is unaffected.
     /// </para>
     ///
     /// <para>
-    /// Registration order does not matter — DI resolves lazily, so
-    /// <c>AddBluetoothLE()</c> may come before or after this call.
+    /// <b>Linux is the one exception:</b> its BlueZ manager lives in the separate
+    /// <c>Shiny.BluetoothLE.Linux</c> package (kept apart so its D-Bus dependency never reaches a
+    /// WebAssembly app). On Linux use <c>AddShinyObdLinuxBluetoothLE()</c> from the
+    /// <c>Shiny.Obd.Ble.Linux</c> package instead, which registers both.
     /// </para>
     ///
     /// <para>
@@ -45,13 +44,23 @@ public static class ServiceCollectionExtensions
         BleObdConfiguration? configuration = null
     )
     {
-#if IOS || ANDROID
-        // Unambiguous here: the only AddBluetoothLE in scope is the one from Shiny.BluetoothLE's
-        // own platform target, which this package already references.
+        // Every Shiny.BluetoothLE target exposes AddBluetoothLE() and it no-ops when a manager is
+        // already registered. On the plain net10.0 target it registers the Web Bluetooth manager when
+        // running in a browser and does nothing elsewhere — Linux brings its own manager via
+        // AddLinuxBluetoothLE(). This package ships a build for each platform head
+        // (android/ios/maccatalyst/macos/windows) so this call binds to that platform's overload.
         services.AddBluetoothLE();
-#endif
+
         services.TryAddSingleton(configuration ?? new BleObdConfiguration());
-        services.TryAddSingleton<IObdDeviceScanner, BleObdDeviceScanner>();
+
+        // Factory rather than by type, so a missing BLE manager surfaces GetBleManager's actionable
+        // error instead of the container's generic "unable to resolve service" — the scanner is
+        // usually the first thing an app resolves.
+        services.TryAddSingleton<IObdDeviceScanner>(sp => new BleObdDeviceScanner(
+            GetBleManager(sp),
+            sp.GetRequiredService<BleObdConfiguration>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<BleObdDeviceScanner>>()
+        ));
 
         // Built by factory rather than by type. BleObdTransport has three two-parameter constructors
         // (IBleManager, IPeripheral, ObdDiscoveredDevice) and letting the container choose between
@@ -74,16 +83,14 @@ public static class ServiceCollectionExtensions
     /// with the one instruction that actually fixes it.
     /// </summary>
     /// <remarks>
-    /// This is the failure a Linux or Blazor consumer hits, and the default message sends them
-    /// looking for a missing Shiny.Obd registration when what is missing is the platform BLE package's
-    /// own <c>AddBluetoothLE()</c> call.
+    /// After <c>AddShinyObdBluetoothLE()</c> calls <c>AddBluetoothLE()</c> itself, the only way to get
+    /// here is a non-browser <c>net10.0</c> app — in practice Linux without <c>AddLinuxBluetoothLE()</c>.
     /// </remarks>
     static IBleManager GetBleManager(IServiceProvider sp)
         => sp.GetService<IBleManager>() ?? throw new ObdException(
-            "No IBleManager is registered. AddShinyObdBluetoothLE() registers the OBD pieces but " +
-            "cannot register the BLE manager itself outside iOS and Android — call " +
-            "services.AddBluetoothLE() from your platform package as well: Shiny.BluetoothLE.Linux " +
-            "on Linux, Shiny.BluetoothLE.Blazor on Blazor WebAssembly, or Shiny.BluetoothLE on a " +
-            "Windows/Apple head."
+            "No IBleManager is registered. AddShinyObdBluetoothLE() registers the BLE manager on iOS, " +
+            "Android, Mac Catalyst, macOS, Windows and Blazor WebAssembly, but not on Linux — reference " +
+            "Shiny.Obd.Ble.Linux and call services.AddShinyObdLinuxBluetoothLE() instead (or call " +
+            "Shiny.BluetoothLE.Linux's services.AddLinuxBluetoothLE() alongside this)."
         );
 }

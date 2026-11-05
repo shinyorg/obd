@@ -14,6 +14,7 @@ public static class MauiProgram
             .CreateBuilder()
             .UseMauiApp<App>()
             .UseShiny()
+            .UseShinyControls()
             .UseShinyShell(x => x.AddGeneratedMaps());
 
 #if DEBUG

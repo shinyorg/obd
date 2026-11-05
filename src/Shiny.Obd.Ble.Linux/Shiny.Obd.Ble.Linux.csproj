@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!--
+        Linux (BlueZ over D-Bus) companion to Shiny.Obd.Ble. Shiny.BluetoothLE's own net10.0 target is the
+        Blazor/Web Bluetooth backend; the BlueZ manager lives in Shiny.BluetoothLE.Linux so its D-Bus
+        dependency never reaches a WebAssembly app. This package keeps that split: reference it only from
+        a Linux app, and AddShinyObdLinuxBluetoothLE() registers both the BlueZ manager and the OBD stack.
+    -->
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)</TargetFramework>
+        <RootNamespace>Shiny.Obd.Ble</RootNamespace>
+        <Description>Linux (BlueZ) BLE transport registration for Shiny.Obd using Shiny.BluetoothLE.Linux</Description>
+        <PackageTags>$(PackageTags) linux bluez raspberrypi</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shiny.Obd.Ble\Shiny.Obd.Ble.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
+        <PackageReference Include="Shiny.BluetoothLE.Linux"/>
+    </ItemGroup>
+</Project>

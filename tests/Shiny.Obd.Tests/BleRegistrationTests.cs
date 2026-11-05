@@ -6,8 +6,9 @@ using Shiny.Obd.Ble;
 namespace Shiny.Obd.Tests;
 
 /// <summary>
-/// Covers <c>AddShinyObdBluetoothLE</c> on the non-mobile targets — Linux, Blazor WebAssembly and the
-/// desktop heads — where the BLE manager comes from a platform package this library cannot reference.
+/// Covers <c>AddShinyObdBluetoothLE</c> on the plain <c>net10.0</c> target. Outside a browser the
+/// Shiny.BluetoothLE <c>AddBluetoothLE()</c> call it makes registers nothing, which is exactly the Linux
+/// situation (the BlueZ manager comes from <c>AddLinuxBluetoothLE()</c> in a separate package).
 /// </summary>
 public class BleRegistrationTests
 {
@@ -107,9 +108,8 @@ public class BleRegistrationTests
     [Fact]
     public void MissingBleManager_ExplainsWhichCallIsMissing()
     {
-        // The failure a Linux or Blazor consumer actually hits. The container's own message names
-        // IBleManager and sends them hunting for a missing Shiny.Obd registration, when what is
-        // missing is their platform package's AddBluetoothLE() call.
+        // The failure a Linux consumer hits without AddLinuxBluetoothLE(). The container's own
+        // message names IBleManager and sends them hunting for a missing Shiny.Obd registration.
         var services = new ServiceCollection();
         services.AddShinyObdBluetoothLE();
 
@@ -117,9 +117,50 @@ public class BleRegistrationTests
 
         var ex = Assert.Throws<ObdException>(() => provider.GetRequiredService<IObdTransport>());
 
-        Assert.Contains("AddBluetoothLE", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Shiny.BluetoothLE.Linux", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Shiny.BluetoothLE.Blazor", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Shiny.Obd.Ble.Linux", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("AddShinyObdLinuxBluetoothLE", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MissingBleManager_ScannerGetsTheSameExplanation()
+    {
+        // Regression for GitHub issue #1: the scanner was registered by type, so resolving it — usually
+        // the first thing an app does — produced the container's generic "Unable to resolve service
+        // for type IBleManager while attempting to activate BleObdDeviceScanner" instead of ours.
+        var services = new ServiceCollection();
+        services.AddShinyObdBluetoothLE();
+
+        using var provider = services.BuildServiceProvider();
+
+        var ex = Assert.Throws<ObdException>(() => provider.GetRequiredService<IObdDeviceScanner>());
+        Assert.Contains("AddShinyObdLinuxBluetoothLE", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ScannerResolvesToTheBleOne()
+    {
+        var services = WithBleManager();
+        services.AddShinyObdBluetoothLE();
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<BleObdDeviceScanner>(provider.GetRequiredService<IObdDeviceScanner>());
+    }
+
+    [Fact]
+    public void AnExplicitAddBluetoothLE_IsHarmless()
+    {
+        // Apps written against the old guidance call AddBluetoothLE() themselves as well. It is
+        // idempotent, so doing so — before or after — must not duplicate or break anything.
+        var services = WithBleManager();
+        services.AddBluetoothLE();
+        services.AddShinyObdBluetoothLE();
+        services.AddBluetoothLE();
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Single(provider.GetServices<IBleManager>());
+        Assert.NotNull(provider.GetService<IObdDeviceScanner>());
     }
 
     [Fact]

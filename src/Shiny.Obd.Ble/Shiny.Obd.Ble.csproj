@@ -3,6 +3,11 @@
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)</TargetFrameworks>
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-android</TargetFrameworks>
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-maccatalyst</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-macos</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-windows10.0.19041.0</TargetFrameworks>
+        <!-- Lets the Windows target build (and pack) from a Mac/Linux machine. -->
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <RootNamespace>Shiny.Obd.Ble</RootNamespace>
         <Description>BLE transport for Shiny.Obd using Shiny.BluetoothLE</Description>
     </PropertyGroup>
