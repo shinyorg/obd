@@ -36,13 +36,17 @@
     </Application>
   </Applications>
 
+  <!--
+    Schema order matters: foundation <Capability> elements first, then other-namespace
+    capabilities (rescap), and <DeviceCapability> elements last.
+  -->
   <Capabilities>
+    <!-- The TCP listener and its mDNS advertisement. -->
+    <Capability Name="internetClientServer" />
+    <Capability Name="privateNetworkClientServer" />
     <rescap:Capability Name="runFullTrust" />
     <!-- BLE peripheral hosting and the BLE client scan. -->
     <DeviceCapability Name="bluetooth" />
-    <!-- The TCP listener and its mDNS advertisement. -->
-    <Capability Name="privateNetworkClientServer" />
-    <Capability Name="internetClientServer" />
   </Capabilities>
 
 </Package>
