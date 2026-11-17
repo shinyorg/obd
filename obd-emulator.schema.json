@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/shinyorg/obd/main/obd-emulator.schema.json",
+  "title": "Shiny.Obd emulator profile",
+  "description": "A vehicle, driving scenarios and starting state for the Shiny.Obd.Emulator OBD-II adapter emulator. Every section is optional, so a file can carry just a vehicle, just a scenario, or a fault state to apply on top of whatever vehicle is selected. Load with ObdEmulatorProfile.Parse / Load and apply with ApplyTo.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Lets editors find this schema. Ignored by the emulator."
+    },
+    "formatVersion": {
+      "description": "The version of this format. The emulator refuses a file newer than it understands rather than half-applying it.",
+      "const": 1,
+      "default": 1
+    },
+    "vehicle": {
+      "$ref": "#/$defs/vehicle"
+    },
+    "scenarios": {
+      "description": "Driving scenarios to add to the player. A scenario with the same name as an existing one replaces it.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "state": {
+      "$ref": "#/$defs/state"
+    }
+  },
+  "$defs": {
+    "pid": {
+      "description": "A mode or PID as two hex digits, e.g. \"0D\".",
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{2}$"
+    },
+    "dtc": {
+      "description": "A SAE J2012 trouble code, e.g. \"P0301\". The second character is 0-3 - only two bits carry it on the wire.",
+      "type": "string",
+      "pattern": "^[PCBUpcbu][0-3][0-9A-Fa-f]{3}$"
+    },
+    "dtcList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dtc"
+      }
+    },
+    "hexBytes": {
+      "description": "Raw bytes as hex pairs, spaces allowed, e.g. \"02 00\". Empty clears it.",
+      "type": "string",
+      "pattern": "^(\\s*[0-9A-Fa-f]{2})*\\s*$"
+    },
+    "vehicle": {
+      "description": "A vehicle the emulator can be (EmulatedVehicle). Selecting it rewrites the identity PIDs, which PIDs are supported, the readiness monitor set and the fault memory.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "vin", "decodes", "note", "ecuName", "calibrationId"],
+      "properties": {
+        "name": {
+          "description": "How the vehicle is named, e.g. \"2018 Honda Civic LX\".",
+          "type": "string",
+          "minLength": 1
+        },
+        "vin": {
+          "description": "Answered to mode 09 PID 02. 17 characters, no I, O or Q. Use a real WMI and descriptor with a valid check digit if the app under test decodes VINs - a made-up one decodes to nothing.",
+          "type": "string",
+          "pattern": "^[A-HJ-NPR-Za-hj-npr-z0-9]{17}$"
+        },
+        "decodes": {
+          "description": "What a VIN decode should come back with, so the app under test has something to check against.",
+          "type": "string"
+        },
+        "note": {
+          "description": "Why this vehicle exists - the case it covers.",
+          "type": "string"
+        },
+        "fuelTypeCode": {
+          "description": "Mode 01 PID 51, the J1979 fuel type. 1 gasoline, 4 diesel, 8 electric, 17 hybrid gasoline.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 1
+        },
+        "obdStandard": {
+          "description": "Mode 01 PID 1C. 1 CARB OBD-II, 6 EOBD, 7 EOBD and OBD-II, 10 JOBD.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 1
+        },
+        "ethanolPercent": {
+          "description": "Mode 01 PID 52. Non-zero only on a flex-fuel vehicle.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 0
+        },
+        "hybridBatteryPercent": {
+          "description": "Mode 01 PID 5B. Leave at 0 and list 5B in unsupportedPids on a vehicle with no traction battery.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 0
+        },
+        "compressionIgnition": {
+          "description": "Reports the compression-ignition (diesel) readiness monitor set.",
+          "type": "boolean",
+          "default": false
+        },
+        "ecuName": {
+          "description": "Mode 09 PID 0A.",
+          "type": "string"
+        },
+        "calibrationId": {
+          "description": "Mode 09 PID 04.",
+          "type": "string"
+        },
+        "unsupportedPids": {
+          "description": "Mode 01 PIDs this vehicle does not answer. They drop out of the supported-PID masks and a read gets NO DATA.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pid"
+          },
+          "uniqueItems": true,
+          "default": []
+        },
+        "reportsVehicleInformation": {
+          "description": "Whether mode 09 is answered at all. False on an early OBD-II vehicle, where the VIN, calibration ID and ECU name all come back NO DATA.",
+          "type": "boolean",
+          "default": true
+        },
+        "storedDtcs": {
+          "description": "Fault memory the vehicle starts with (mode 03). The MIL is lit when any are present.",
+          "$ref": "#/$defs/dtcList",
+          "default": ["P0301", "P0420"]
+        },
+        "pendingDtcs": {
+          "description": "Pending codes (mode 07).",
+          "$ref": "#/$defs/dtcList",
+          "default": ["P0171"]
+        },
+        "freezeFrameDtc": {
+          "description": "The code the stored freeze frame was captured against. Null when no freeze frame is stored.",
+          "anyOf": [
+            { "$ref": "#/$defs/dtc" },
+            { "type": "null" }
+          ],
+          "default": "P0301"
+        },
+        "massKg": {
+          "description": "Kerb mass plus a driver, in kg.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1500
+        },
+        "displacementLitres": {
+          "description": "Engine displacement in litres. Mass air flow is computed from it.",
+          "type": "number",
+          "minimum": 0,
+          "default": 2.0
+        },
+        "peakPowerWatts": {
+          "description": "Peak power in watts. Caps tractive force at speed.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 105000
+        },
+        "peakTractiveForceN": {
+          "description": "Peak tractive force in newtons. Caps acceleration at low speed.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 6000
+        },
+        "idleRpm": {
+          "description": "Warm idle speed. 0 on an EV.",
+          "type": "number",
+          "minimum": 0,
+          "default": 780
+        },
+        "tankLitres": {
+          "description": "Tank size in litres - turns a fuel rate into a falling fuel level.",
+          "type": "number",
+          "minimum": 0,
+          "default": 55
+        },
+        "gearRatios": {
+          "description": "Engine rpm per km/h in each gear, top gear last.",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 1,
+          "default": [95, 55, 38, 29, 23, 19]
+        },
+        "shiftFloorRpm": {
+          "description": "Upshift rpm under no load.",
+          "type": "number",
+          "minimum": 0,
+          "default": 2400
+        },
+        "shiftCeilingRpm": {
+          "description": "Upshift rpm at full throttle.",
+          "type": "number",
+          "minimum": 0,
+          "default": 4900
+        },
+        "downshiftRpm": {
+          "description": "Downshift rpm.",
+          "type": "number",
+          "minimum": 0,
+          "default": 1250
+        },
+        "airFuelRatio": {
+          "description": "Stoichiometric air-fuel ratio - 14.7 petrol, 14.5 diesel.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 14.7
+        },
+        "fuelDensityGramsPerLitre": {
+          "description": "Fuel density in g/L - 745 petrol, 832 diesel.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 745
+        },
+        "isElectric": {
+          "description": "No engine to model: speed still moves, but the engine PIDs are meaningless.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "scenario": {
+      "description": "A named drive the emulator can play back (DrivingScenario).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "summary", "steps"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "description": "One line describing the drive.",
+          "type": "string"
+        },
+        "loops": {
+          "description": "Restart from the first step when the last one ends.",
+          "type": "boolean",
+          "default": true
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    },
+    "step": {
+      "description": "One leg of a drive (DrivingStep).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "action", "targetSpeedKph", "seconds"],
+      "properties": {
+        "label": {
+          "description": "Shown while the step plays.",
+          "type": "string"
+        },
+        "action": {
+          "description": "How speed is driven toward targetSpeedKph. For brake, harshBrake and coast the target is a floor.",
+          "enum": ["idle", "accelerate", "cruise", "coast", "brake", "harshBrake"]
+        },
+        "targetSpeedKph": {
+          "type": "number",
+          "minimum": 0
+        },
+        "seconds": {
+          "description": "How long the step runs, whether or not the target was reached.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "state": {
+      "description": "Overrides applied after the vehicle is selected. Anything left out keeps its current value.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "adapterIdentifier": {
+          "description": "What the adapter answers to ATI. Include \"STN\" to exercise the OBDLink profile.",
+          "type": "string"
+        },
+        "deviceDescription": {
+          "description": "What the adapter answers to AT@1.",
+          "type": "string"
+        },
+        "milOn": {
+          "description": "Malfunction indicator lamp.",
+          "type": "boolean"
+        },
+        "monitorsComplete": {
+          "description": "False reports the readiness monitors as still running - what fails an inspection.",
+          "type": "boolean"
+        },
+        "compressionIgnition": {
+          "type": "boolean"
+        },
+        "freezeFrameCaptured": {
+          "description": "Whether a mode 02 snapshot exists. False answers every freeze frame read with NO DATA.",
+          "type": "boolean"
+        },
+        "freezeFrameDtc": {
+          "$ref": "#/$defs/dtc"
+        },
+        "engineOff": {
+          "description": "Answer every request with NO DATA, as an adapter does with the ignition off.",
+          "type": "boolean"
+        },
+        "storedDtcs": {
+          "$ref": "#/$defs/dtcList"
+        },
+        "pendingDtcs": {
+          "$ref": "#/$defs/dtcList"
+        },
+        "permanentDtcs": {
+          "$ref": "#/$defs/dtcList"
+        },
+        "parameters": {
+          "description": "Per-PID values. Set the field that matches the parameter's kind: number for scalars (engineering units), text for ASCII PIDs (VIN, ECU name), hex for bitfield PIDs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "pid"],
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/pid"
+        },
+        "pid": {
+          "$ref": "#/$defs/pid"
+        },
+        "supported": {
+          "description": "False makes the PID answer NO DATA and drop out of the supported masks.",
+          "type": "boolean"
+        },
+        "number": {
+          "description": "The value in engineering units, e.g. 88 for 88 km/h.",
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        },
+        "hex": {
+          "$ref": "#/$defs/hexBytes"
+        },
+        "rawOverride": {
+          "description": "Payload bytes sent instead of the encoded value - for composite or deliberately malformed replies. Empty clears it.",
+          "$ref": "#/$defs/hexBytes"
+        }
+      }
+    }
+  }
+}

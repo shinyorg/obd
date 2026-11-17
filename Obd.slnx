@@ -1,28 +1,26 @@
 <Solution>
-  <Folder Name="/Solution/">
-    <File Path=".editorconfig" />
-    <File Path=".github\workflows\build.yml" />
-    <File Path=".github\workflows\sync-skills.yml" />
-    <File Path="build.slnf" />
-    <File Path="Directory.build.props" />
-    <File Path="Directory.packages.props" />
-    <File Path="LICENSE" />
-    <File Path="nuget.config" />
-    <File Path="nuget.txt" />
-    <File Path="readme.md" />
-    <File Path="version.json" />
-    <File Path="skills\shiny-obd\SKILL.md" />
-  </Folder>
-  <Project Path="src/Shiny.Obd/Shiny.Obd.csproj" />
-  <Project Path="src/Shiny.Obd.Ble/Shiny.Obd.Ble.csproj" />
-  <Project Path="src/Shiny.Obd.Ble.Linux/Shiny.Obd.Ble.Linux.csproj" />
-  <Project Path="src/Shiny.Obd.Emulator/Shiny.Obd.Emulator.csproj" />
-  <Project Path="src/Shiny.Obd.Emulator.Ble/Shiny.Obd.Emulator.Ble.csproj" />
-  <Project Path="src/Shiny.Obd.Serial/Shiny.Obd.Serial.csproj" />
-  <Project Path="src/Shiny.Obd.Wifi/Shiny.Obd.Wifi.csproj" />
-  <Project Path="tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj" />
-  <Folder Name="/src/">
-    <Project Path="src/Shiny.Obd.Bluetooth/Shiny.Obd.Bluetooth.csproj" />
-  </Folder>
-  <Project Path="samples/Sample.Maui/Sample.Maui.csproj" />
+    <Folder Name="/Solution/">
+        <File Path=".editorconfig"/>
+        <File Path=".github\workflows\build.yml"/>
+        <File Path=".github\workflows\sync-skills.yml"/>
+        <File Path="build.slnf"/>
+        <File Path="Directory.build.props"/>
+        <File Path="Directory.packages.props"/>
+        <File Path="LICENSE"/>
+        <File Path="nuget.config"/>
+        <File Path="nuget.txt"/>
+        <File Path="readme.md"/>
+        <File Path="version.json"/>
+        <File Path="skills\shiny-obd\SKILL.md"/>
+    </Folder>
+    <Project Path="src/Shiny.Obd/Shiny.Obd.csproj"/>
+    <Project Path="src/Shiny.Obd.Ble/Shiny.Obd.Ble.csproj"/>
+    <Project Path="src/Shiny.Obd.Ble.Linux/Shiny.Obd.Ble.Linux.csproj"/>
+    <Project Path="src/Shiny.Obd.Emulator/Shiny.Obd.Emulator.csproj"/>
+    <Project Path="src/Shiny.Obd.Emulator.Ble/Shiny.Obd.Emulator.Ble.csproj"/>
+    <Project Path="src/Shiny.Obd.Serial/Shiny.Obd.Serial.csproj"/>
+    <Project Path="src/Shiny.Obd.Wifi/Shiny.Obd.Wifi.csproj"/>
+    <Project Path="tests/Shiny.Obd.Tests/Shiny.Obd.Tests.csproj"/>
+    <Project Path="src/Shiny.Obd.Bluetooth/Shiny.Obd.Bluetooth.csproj"/>
+    <Project Path="samples/Sample.Maui/Sample.Maui.csproj"/>
 </Solution>

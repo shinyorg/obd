@@ -28,7 +28,7 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 - **Emissions monitor readiness** — the full mode 01 PID 01/41 bit layout decoded for both spark and compression ignition, with `IsReadyForInspection` answering the question an emissions test actually asks.
 - **Freeze frames** — `AsFreezeFrame()` on any mode 01 command reads the same PID out of the snapshot the ECU stored when a code was set, so you get the conditions at the moment of the fault rather than the conditions now.
 - **VIN decoding** — `IVinDecoder` turns the VIN off the ECU into make, model, year and the engine/drivetrain/body a registry knows about. NHTSA vPIC ships built in (free, keyless); register your own provider with one line.
-- **Test without a car** — `Shiny.Obd.Emulator` *is* an adapter. It hosts an ELM327-compatible OBD-II bus over TCP (and BLE, with one more package), with every PID, trouble code and readiness flag settable, eight vehicles whose VINs decode for real, and driving scenarios that play into it. Runs headless in a test, or behind the [sample app](samples/Sample.Maui)'s UI. See [Adapter Emulator](#adapter-emulator).
+- **Test without a car** — `Shiny.Obd.Emulator` *is* an adapter. It hosts an ELM327-compatible OBD-II bus over TCP (and BLE, with one more package), with every PID, trouble code and readiness flag settable, eight vehicles whose VINs decode for real, driving scenarios that play into it, and JSON profiles to share a setup between projects. Runs headless in a test, or behind the [sample app](samples/Sample.Maui)'s UI. See [Adapter Emulator](#adapter-emulator).
 
 ## Projects
 
@@ -1333,6 +1333,21 @@ complete or still running, compression vs spark ignition, freeze frame stored or
 (every request answers `UNABLE TO CONNECT`), trouble codes for modes 03/07/0A, and the `ATI` response —
 put `STN` in it and `ObdConnection` picks the OBDLink profile instead of the ELM327 one, which is how
 you test that branch without owning an OBDLink.
+
+**Share a setup as JSON.** `ObdEmulatorProfile` reads and writes a vehicle, driving scenarios and starting
+state (adapter identity, faults, per-PID values) as one JSON file described by
+[`obd-emulator.schema.json`](obd-emulator.schema.json), so the same emulator setup can live in several repos
+instead of being rebuilt in each one's code. Reference the schema with `$schema` and your editor validates
+the file as you type.
+
+```csharp
+var profile = await ObdEmulatorProfile.Load(File.OpenRead("f150.obd.json"));
+profile.ApplyTo(state, player);                                  // vehicle, then state, then scenarios
+var json = ObdEmulatorProfile.Capture(state, myScenarios).ToJson();   // and back out again
+```
+
+PIDs are hex strings (`"0D"`), every section is optional, and the whole file is validated before anything
+is applied — a typo throws `ObdException` rather than half-configuring the emulator.
 
 ## Commercial Support
 
