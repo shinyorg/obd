@@ -257,7 +257,7 @@ public class WifiObdTransport : IObdTransport, IDisposable
         try
         {
             var id = await this.Exchange("ATI\r", this.config.ProbeTimeout, ct).ConfigureAwait(false);
-            return String.IsNullOrWhiteSpace(id) ? null : id;
+            return WifiObdProbe.CleanIdentity(id);
         }
         catch (ObdTimeoutException)
         {

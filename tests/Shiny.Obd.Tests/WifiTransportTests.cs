@@ -52,6 +52,9 @@ sealed class FakeElmAdapter : IAsyncDisposable
     /// <summary>Set to drop the connection instead of replying to the next command.</summary>
     public bool DropOnNextCommand { get; set; }
 
+    /// <summary>Echo each command before replying, as a real adapter does until it is sent ATE0.</summary>
+    public bool Echo { get; set; }
+
     async Task Accept()
     {
         while (!this.cts.IsCancellationRequested)
@@ -116,7 +119,8 @@ sealed class FakeElmAdapter : IAsyncDisposable
                     try
                     {
                         // The real framing: the reply, then a bare CR, then the prompt.
-                        await stream.WriteAsync(Encoding.ASCII.GetBytes($"{reply}\r\r>"), this.cts.Token);
+                        var echo = this.Echo ? $"{command}\r" : "";
+                        await stream.WriteAsync(Encoding.ASCII.GetBytes($"{echo}{reply}\r\r>"), this.cts.Token);
                         await stream.FlushAsync(this.cts.Token);
                     }
                     catch (Exception)
@@ -305,6 +309,19 @@ public class WifiObdTransportTests
 
         Assert.Equal("ATI", adapter.Received.Single());
         Assert.Equal("ELM327 v1.5", transport.DetectedIdentifier);
+    }
+
+    [Fact]
+    public async Task Connect_WithDetection_LeavesTheEchoOutOfTheIdentifier()
+    {
+        // probing happens before ATE0, so an adapter fresh from power-up echoes the ATI back first
+        await using var adapter = FakeElmAdapter.Always("OBDLink MX+ STN2255");
+        adapter.Echo = true;
+        await using var transport = new WifiObdTransport(Fast(adapter.Endpoint, detect: true));
+
+        await transport.Connect();
+
+        Assert.Equal("OBDLink MX+ STN2255", transport.DetectedIdentifier);
     }
 
     [Fact]
@@ -592,6 +609,21 @@ public class WifiObdDeviceScannerTests
         Assert.Equal("ELM327 v1.5", device.Name);
         Assert.Equal(adapter.Endpoint.ToString(), device.Id);
         Assert.Equal(adapter.Endpoint, Assert.IsType<WifiObdEndpoint>(device.NativeDevice));
+    }
+
+    [Fact]
+    public async Task Scan_NamesAnEchoingAdapterWithoutTheEcho()
+    {
+        await using var adapter = FakeElmAdapter.Always("OBDLink MX+ STN2255");
+        adapter.Echo = true;
+
+        var scanner = new WifiObdDeviceScanner(Probing(adapter.Endpoint));
+        var found = new List<ObdDiscoveredDevice>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+        await scanner.Scan(found.Add, cts.Token);
+
+        Assert.Equal("OBDLink MX+ STN2255", Assert.Single(found).Name);
     }
 
     [Fact]

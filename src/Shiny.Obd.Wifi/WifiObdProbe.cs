@@ -106,6 +106,25 @@ static class WifiObdProbe
     /// and both fall out as a timeout here rather than as a false positive.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The identity in an <c>ATI</c> reply, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// The probe runs before any profile has sent <c>ATE0</c>, and echo is on by default after power-up, so
+    /// the reply opens with the command itself - left in, an adapter is named "ATI\rELM327 v1.5".
+    /// </remarks>
+    internal static string? CleanIdentity(string? reply)
+    {
+        var lines = (reply ?? "")
+            .Replace(">", "")
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => !x.Equals("ATI", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return lines.Count == 0 ? null : String.Join(" ", lines);
+    }
+
+
     public static async Task<string?> Identify(
         WifiObdEndpoint endpoint,
         WifiObdConfiguration config,
@@ -143,7 +162,7 @@ static class WifiObdProbe
 
                 var current = text.ToString();
                 if (current.Contains('>'))
-                    return current.Replace(">", "").Trim();
+                    return CleanIdentity(current);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
