@@ -134,7 +134,7 @@ public class SerialObdTransportTests
     public async Task Connect_OnAndroid_ExplainsThatSerialIsNotTheRoute()
     {
         // Android is the trap platform. System.IO.Ports is not marked unsupported there and its
-        // native library ships for the android-* RIDs, so a net10.0-android project can reference
+        // native library ships for the android-* RIDs, so a net11.0-android project can reference
         // this package and compile cleanly - then fail here rather than with
         // PlatformNotSupportedException. The generic "add yourself to the dialout group" advice is
         // actively wrong on Android: /dev/ttyUSB* is root:usb and unreachable from an app at all.

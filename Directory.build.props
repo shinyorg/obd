@@ -1,6 +1,6 @@
 <Project>
     <PropertyGroup>
-        <BaseTargetFramework>net10.0</BaseTargetFramework>
+        <BaseTargetFramework>net11.0</BaseTargetFramework>
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -14,12 +14,16 @@
         <RepositoryUrl>https://github.com/shinyorg/obd</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
 
-        <MauiVersion>10.0.100</MauiVersion>
+        <MauiVersion>11.0.10</MauiVersion>
         <PackageIcon>icon.png</PackageIcon>
         <PackageReadmeFile>readme.md</PackageReadmeFile>
         <PackageReleaseNotes>https://shinylib.net/client/obd/release-notes</PackageReleaseNotes>
         <PackageProjectUrl>https://shinylib.net</PackageProjectUrl>
         <PackageTags>obd obd2 elm327 obdlink vehicle diagnostics shiny bluetooth ble</PackageTags>
+        <!-- local / CI builds only - release.yml stamps the real version from the v* tag with -p:Version -->
+        <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
+        <CI Condition="'$(GITHUB_ACTIONS)' == 'true'">true</CI>
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">

@@ -21,7 +21,7 @@ namespace Shiny.Obd.Serial;
 /// <para>
 /// <b>Not usable on Android or iOS.</b> iOS throws <c>PlatformNotSupportedException</c>. Android is
 /// the trap — the assembly is not marked unsupported there and the native library ships for the
-/// <c>android-*</c> RIDs, so a <c>net10.0-android</c> project compiles cleanly and then fails at
+/// <c>android-*</c> RIDs, so a <c>net11.0-android</c> project compiles cleanly and then fails at
 /// runtime with <c>UnauthorizedAccessException</c>, because <c>/dev/ttyUSB*</c> is <c>root:usb</c>
 /// and unreachable from an app on an unrooted device. Android USB adapters need the USB Host API,
 /// which would be a separate transport. Use <c>Shiny.Obd.Ble</c> on mobile.

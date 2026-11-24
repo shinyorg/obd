@@ -1,11 +1,9 @@
 name: Sync Skills
 
+# The skill only reaches shinyorg/skills with a release: release.yml calls this once the packages are on NuGet, so
+# the published skill always describes a shipped version. Run it by hand to re-sync.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'skills/**'
+  workflow_call:
   workflow_dispatch:
 
 jobs:

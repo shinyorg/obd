@@ -49,9 +49,11 @@ change unless there's a reason not to.
 Release notes live in the documentation repo at
 `~/Desktop/dev/documentation/src/content/docs/obd/release-notes.mdx`.
 
-**Which version does a note go against?** Use the `version` field in `version.json` (this repo uses
-Nerdbank.GitVersioning) — **the raw version portion only** (strip any prerelease/build-metadata
-suffix, e.g. `1.0.0-beta.{height}` → `1.0.0`).
+**Which version does a note go against?** The next release tag. Releases are tag based (see
+`.github/workflows/release.yml`): pushing `v2.0.0` (or `v2.0.0-beta.1`) to `main` builds, tests and pushes every
+package at that version. Nothing in the repo holds the version; local and CI builds are `0.0.0-dev`. Put notes
+under the version that will be tagged next, the raw version only (a `v2.0.0-beta.1` tag → `v2.0.0`). When unsure
+which version is next, ask.
 
 **Heading style — match the existing file.** Sections are headed `## v<version>` with a `v` prefix
 (`## v1.0.0 - TBD`). Newest version section stays at the top of the file.

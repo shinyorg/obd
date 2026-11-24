@@ -104,7 +104,7 @@ public class WifiObdConfiguration
     /// Called with the raw socket after it is created and before it connects.
     /// </summary>
     /// <remarks>
-    /// The escape hatch for platform socket work this library cannot do from a <c>net10.0</c>
+    /// The escape hatch for platform socket work this library cannot do from a <c>net11.0</c>
     /// assembly - binding the socket to a specific <c>Android.Net.Network</c>, setting buffer sizes,
     /// enabling TCP keep-alives. See the Android routing note on <see cref="WifiObdTransport"/>.
     /// </remarks>

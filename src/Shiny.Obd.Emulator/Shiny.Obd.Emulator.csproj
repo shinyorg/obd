@@ -15,9 +15,6 @@
 
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.Mvvm"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
-        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all"/>
         <PackageReference Include="Shiny.Net.Discovery"/>
     </ItemGroup>
 </Project>

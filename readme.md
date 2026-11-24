@@ -34,14 +34,16 @@ A .NET library for communicating with vehicles through OBD-II (On-Board Diagnost
 
 | Package | Target | Description |
 |---------|--------|-------------|
-| `Shiny.Obd` | `net10.0` | Core library — commands, connection, transport abstraction |
-| `Shiny.Obd.Ble` | `net10.0`, `-android`, `-ios`, `-maccatalyst`, `-macos`, `-windows` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
-| `Shiny.Obd.Ble.Linux` | `net10.0` | Linux (BlueZ) BLE registration — `AddShinyObdLinuxBluetoothLE()` via Shiny.BluetoothLE.Linux |
-| `Shiny.Obd.Bluetooth` | `net10.0`, `net10.0-android` | Classic Bluetooth (RFCOMM/SPP) transport using [Shiny.Bluetooth](https://github.com/shinyorg/shiny) — Android, Windows, macOS, Linux (not iOS) |
-| `Shiny.Obd.Serial` | `net10.0` | Serial (USB/UART) transport — Windows, Linux, macOS, Mac Catalyst |
-| `Shiny.Obd.Wifi` | `net10.0` | WiFi (TCP) transport — every platform, including iOS and Android |
-| `Shiny.Obd.Emulator` | `net10.0` | Adapter emulator — be a vehicle instead of reading one, over TCP |
-| `Shiny.Obd.Emulator.Ble` | `net10.0` | BLE peripheral front-end for the emulator |
+| `Shiny.Obd` | `net11.0` | Core library — commands, connection, transport abstraction |
+| `Shiny.Obd.Ble` | `net11.0`, `-android`, `-ios`, `-maccatalyst`, `-macos`, `-windows` | BLE transport using [Shiny.BluetoothLE](https://github.com/shinyorg/shiny) |
+| `Shiny.Obd.Ble.Linux` | `net11.0` | Linux (BlueZ) BLE registration — `AddShinyObdLinuxBluetoothLE()` via Shiny.BluetoothLE.Linux |
+| `Shiny.Obd.Bluetooth` | `net11.0`, `net11.0-android` | Classic Bluetooth (RFCOMM/SPP) transport using [Shiny.Bluetooth](https://github.com/shinyorg/shiny) — Android, Windows, macOS, Linux (not iOS) |
+| `Shiny.Obd.Serial` | `net11.0` | Serial (USB/UART) transport — Windows, Linux, macOS, Mac Catalyst |
+| `Shiny.Obd.Wifi` | `net11.0` | WiFi (TCP) transport — every platform, including iOS and Android |
+| `Shiny.Obd.Emulator` | `net11.0` | Adapter emulator — be a vehicle instead of reading one, over TCP |
+| `Shiny.Obd.Emulator.Ble` | `net11.0` | BLE peripheral front-end for the emulator |
+
+Shiny.Obd 2.x targets .NET 11 and Shiny 7. Stay on 1.5.x for .NET 10 / Shiny 6.
 
 ## Quick Start
 
@@ -957,7 +959,7 @@ storm after a power cycle, and a wired adapter cannot wander out of range.
 | iOS, tvOS, Browser/WASM | No | `[UnsupportedOSPlatform]`; throws `PlatformNotSupportedException` |
 
 **Android deserves a specific warning.** `System.IO.Ports` is *not* marked unsupported there and its
-native library genuinely ships for the `android-*` RIDs, so a `net10.0-android` project can reference
+native library genuinely ships for the `android-*` RIDs, so a `net11.0-android` project can reference
 this package and compile cleanly. It then fails at runtime with `UnauthorizedAccessException` rather
 than `PlatformNotSupportedException`, which looks like a fixable permissions problem and is not: the
 kernel does create `/dev/ttyUSB0` for a host-mode adapter, but it is owned `root:usb` and an app's UID
@@ -1263,7 +1265,7 @@ adapter, while the **Adapter**, **Drive**, **Values** and **Faults** tabs drive 
 trouble code and readiness flag settable by hand, with a live command log.
 
 ```bash
-dotnet build samples/Sample.Maui/Sample.Maui.csproj -f net10.0-android   # or -f net10.0-ios
+dotnet build samples/Sample.Maui/Sample.Maui.csproj -f net11.0-android   # or -f net11.0-ios
 ```
 
 **Two transports, one vehicle.** A GATT service on `FFF0`/`FFF1`/`FFF2` advertised as `VEEPEAK` (the

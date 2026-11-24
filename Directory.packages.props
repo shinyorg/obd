@@ -1,25 +1,22 @@
 <Project>
     <PropertyGroup>
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-        <ShinyVersion>6.6.0</ShinyVersion>
+        <ShinyVersion>7.0.0</ShinyVersion>
     </PropertyGroup>
     <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11"/>
-        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11"/>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11"/>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11"/>
-        <PackageVersion Include="Nerdbank.GitVersioning" Version="3.10.91"/>
-        <PackageVersion Include="System.IO.Ports" Version="10.0.10"/>
+        <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0"/>
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0"/>
+        <PackageVersion Include="System.IO.Ports" Version="11.0.0"/>
         <PackageVersion Include="Shiny.Bluetooth" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.BluetoothLE" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.BluetoothLE.Linux" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.BluetoothLE.Hosting" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Hosting.Maui" Version="$(ShinyVersion)"/>
         <PackageVersion Include="Shiny.Net.Discovery" Version="$(ShinyVersion)"/>
-        <PackageVersion Include="Shiny.Maui.Shell" Version="7.0.3"/>
-        <PackageVersion Include="Shiny.Maui.Controls" Version="2.5.0"/>
+        <PackageVersion Include="Shiny.Maui.Shell" Version="8.0.1"/>
+        <PackageVersion Include="Shiny.Maui.Controls" Version="3.0.0-beta.1"/>
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2"/>
-        <PackageVersion Include="coverlet.collector" Version="10.0.1"/>
+        <PackageVersion Include="coverlet.collector" Version="10.1.1"/>
         <PackageVersion Include="JsonSchema.Net" Version="9.7.0"/>
         <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1"/>

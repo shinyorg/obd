@@ -6,7 +6,7 @@ using Shiny.Obd.Ble;
 namespace Shiny.Obd.Tests;
 
 /// <summary>
-/// Covers <c>AddShinyObdBluetoothLE</c> on the plain <c>net10.0</c> target. Outside a browser the
+/// Covers <c>AddShinyObdBluetoothLE</c> on the plain <c>net11.0</c> target. Outside a browser the
 /// Shiny.BluetoothLE <c>AddBluetoothLE()</c> call it makes registers nothing, which is exactly the Linux
 /// situation (the BlueZ manager comes from <c>AddLinuxBluetoothLE()</c> in a separate package).
 /// </summary>

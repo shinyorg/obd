@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shiny.Obd.Vin;
@@ -31,7 +32,7 @@ public static class VinDecoderServiceCollectionExtensions
     /// nowhere to surface a failure.
     /// </para>
     /// </remarks>
-    public static IServiceCollection AddVinDecoder<TDecoder>(this IServiceCollection services)
+    public static IServiceCollection AddVinDecoder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecoder>(this IServiceCollection services)
         where TDecoder : class, IVinDecoder
     {
         services.AddHttpClient();

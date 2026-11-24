@@ -45,7 +45,7 @@ public static class ServiceCollectionExtensions
     )
     {
         // Every Shiny.BluetoothLE target exposes AddBluetoothLE() and it no-ops when a manager is
-        // already registered. On the plain net10.0 target it registers the Web Bluetooth manager when
+        // already registered. On the plain net11.0 target it registers the Web Bluetooth manager when
         // running in a browser and does nothing elsewhere — Linux brings its own manager via
         // AddLinuxBluetoothLE(). This package ships a build for each platform head
         // (android/ios/maccatalyst/macos/windows) so this call binds to that platform's overload.
@@ -84,7 +84,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// After <c>AddShinyObdBluetoothLE()</c> calls <c>AddBluetoothLE()</c> itself, the only way to get
-    /// here is a non-browser <c>net10.0</c> app — in practice Linux without <c>AddLinuxBluetoothLE()</c>.
+    /// here is a non-browser <c>net11.0</c> app — in practice Linux without <c>AddLinuxBluetoothLE()</c>.
     /// </remarks>
     static IBleManager GetBleManager(IServiceProvider sp)
         => sp.GetService<IBleManager>() ?? throw new ObdException(
